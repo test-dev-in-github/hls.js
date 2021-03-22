@@ -343,6 +343,11 @@ class BufferController extends EventHandler {
       return;
     }
 
+    // if the event has no new track information, do nothing
+    if (Object.keys(tracks).every((trackType) => trackType in this.pendingTracks)) {
+      return;
+    }
+
     Object.keys(tracks).forEach(trackName => {
       this.pendingTracks[trackName] = tracks[trackName];
     });
