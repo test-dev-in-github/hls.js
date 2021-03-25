@@ -271,7 +271,7 @@ export default class LevelController extends EventHandler {
       return;
     }
 
-    let levelError = false, fragmentError = false;
+    let levelError = false; let fragmentError = false;
     let levelIndex;
 
     // try to recover not fatal errors
@@ -299,6 +299,14 @@ export default class LevelController extends EventHandler {
     }
   }
 
+  findAudioTrackController (hls) {
+    for (const networkController of hls.networkControllers) {
+      if (networkController instanceof this.hls.config.audioStreamController) {
+        return networkController;
+      }
+    }
+  }
+
   /**
    * Switch to a redundant stream if any available.
    * If redundant stream is not available, emergency switch down if ABR mode is enabled.
@@ -313,7 +321,7 @@ export default class LevelController extends EventHandler {
     let { config } = this.hls;
     let { details: errorDetails } = errorEvent;
     let level = this._levels[levelIndex];
-    let redundantLevels, delay, nextLevel;
+    let redundantLevels; let delay; let nextLevel;
 
     level.loadError++;
     level.fragmentError = fragmentError;
@@ -339,12 +347,53 @@ export default class LevelController extends EventHandler {
       }
     }
 
+    let loadError = level.loadError;
+    nextLevel = (levelIndex === 0) ? this._levels.length - 1 : levelIndex - 1;
+    if (errorEvent?.frag?.type === 'audio') {
+      // eslint-disable-next-line no-restricted-properties
+      const audioStreamController = this.findAudioTrackController(this.hls);
+      if (audioStreamController) {
+        const audioLevel = audioStreamController.tracks[levelIndex];
+
+        levelIndex = this.hls.nextAutoLevel;
+        level = this._levels[levelIndex];
+
+        // Find the next level with a different audio group ID.
+        const levels = this._levels
+          // get level indexes
+          .map((level, index) => ({ level, index }))
+          // filter out all levels with the current audioGroupId
+          .filter(({ level: { audioGroupIds } }) => audioGroupIds.indexOf(audioLevel.groupId) === -1)
+          .map((x) => ({
+            difference: x.index - levelIndex,
+            index: x.index
+          }));
+
+        let highestNegativeDifference;
+        let highestPositiveDifference;
+        for (const level of levels) {
+          if (level.difference < 0 && (!highestNegativeDifference || highestNegativeDifference.difference < level.difference)) {
+            highestNegativeDifference = level;
+          }
+          if (level.difference > 0 && (!highestPositiveDifference || highestPositiveDifference.difference < level.difference)) {
+            highestPositiveDifference = level;
+          }
+        }
+
+        const nextIndex = highestNegativeDifference?.index ?? highestPositiveDifference?.index;
+
+        if (nextIndex !== undefined) {
+          nextLevel = nextIndex;
+        }
+      }
+    }
+
     // Try any redundant streams if available for both errors: level and fragment
     // If level.loadError reaches redundantLevels it means that we tried them all, no hope  => let's switch down
     if (levelError || fragmentError) {
       redundantLevels = level.url.length;
 
-      if (redundantLevels > 1 && level.loadError < redundantLevels) {
+      if (redundantLevels > 1 && loadError < redundantLevels) {
         level.urlId = (level.urlId + 1) % redundantLevels;
         level.details = undefined;
 
@@ -356,9 +405,41 @@ export default class LevelController extends EventHandler {
         // Search for available level
         if (this.manualLevelIndex === -1) {
           // When lowest level has been reached, let's start hunt from the top
-          nextLevel = (levelIndex === 0) ? this._levels.length - 1 : levelIndex - 1;
           logger.warn(`level controller, ${errorDetails}: switch to ${nextLevel}`);
           this.hls.nextAutoLevel = this.currentLevelIndex = nextLevel;
+
+          const { frag } = errorEvent;
+          if (frag.type === 'audio') {
+            const waitUntil = frag.sn + 2;
+            logger.warn(`auto level will be restricted until fragment ${waitUntil}.`);
+            const handleSeeking = () => {
+              logger.log('auto level restriction cancelled due to seeking.');
+              this.cleanPreviousListener();
+            };
+            const handleFragChanged = (event, data) => {
+              if (data.frag.sn >= waitUntil) {
+                logger.log('auto level restriction lifted.');
+                this.cleanPreviousListener();
+              }
+            };
+            const handleFragLoaded = (event, data) => {
+              logger.log(`restrict auto level to ${nextLevel} until we play through fragment ${frag.sn}. Currently on ${frag.type} ${frag.audio}`);
+              // this.hls.nextAutoLevel = this.currentLevelIndex = nextLevel;
+              this.hls.nextAutoLevel = nextLevel;
+            };
+
+            this.hls.media.addEventListener('seeking', handleSeeking);
+            this.hls.on(Event.FRAG_CHANGED, handleFragChanged);
+            this.hls.on(Event.FRAG_LOADED, handleFragLoaded);
+            if (this.cleanPreviousListener) {
+              this.cleanPreviousListener();
+            }
+            this.cleanPreviousListener = () => {
+              this.hls.media.removeEventListener('seeking', handleSeeking);
+              this.hls.off(Event.FRAG_CHANGED, handleFragChanged);
+              this.hls.off(Event.FRAG_LOADED, handleFragLoaded);
+            };
+          }
         } else if (fragmentError) {
           // Allow fragment retry as long as configuration allows.
           // reset this._level so that another call to set level() will trigger again a frag load
@@ -420,6 +501,11 @@ export default class LevelController extends EventHandler {
           urlId = i;
           break;
         }
+      }
+
+      if (urlId === -1) {
+        logger.warn('no matching audio track for the current level.');
+        return;
       }
 
       if (urlId !== currentLevel.urlId) {
