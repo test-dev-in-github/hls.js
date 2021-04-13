@@ -45,7 +45,7 @@ class DemuxerInline {
     }
   }
 
-  push (data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS) {
+  push (data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS, initSegmentChange) {
     if ((data.byteLength > 0) && (decryptdata != null) && (decryptdata.key != null) && (decryptdata.method === 'AES-128')) {
       let decrypter = this.decrypter;
       if (decrypter == null) {
@@ -56,14 +56,14 @@ class DemuxerInline {
       decrypter.decrypt(data, decryptdata.key.buffer, decryptdata.iv.buffer, (decryptedData) => {
         const endTime = now();
         this.observer.trigger(Event.FRAG_DECRYPTED, { stats: { tstart: startTime, tdecrypt: endTime } });
-        this.pushDecrypted(new Uint8Array(decryptedData), decryptdata, new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS);
+        this.pushDecrypted(new Uint8Array(decryptedData), decryptdata, new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS, initSegmentChange);
       });
     } else {
-      this.pushDecrypted(new Uint8Array(data), decryptdata, new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS);
+      this.pushDecrypted(new Uint8Array(data), decryptdata, new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS, initSegmentChange);
     }
   }
 
-  pushDecrypted (data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS) {
+  pushDecrypted (data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS, initSegmentChange) {
     let demuxer = this.demuxer;
     let remuxer = this.remuxer;
     if (!demuxer ||
@@ -105,7 +105,7 @@ class DemuxerInline {
       this.remuxer = remuxer;
     }
 
-    if (discontinuity || trackSwitch) {
+    if (discontinuity || trackSwitch || initSegmentChange) {
       demuxer.resetInitSegment(initSegment, audioCodec, videoCodec, duration);
       remuxer.resetInitSegment();
     }
