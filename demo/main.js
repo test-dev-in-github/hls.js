@@ -8,7 +8,9 @@ const NETLIFY = __NETLIFY__; // replaced in build
 
 const STORAGE_KEYS = {
   Editor_Persistence: 'hlsjs:config-editor-persist',
-  Hls_Config: 'hlsjs:config'
+  Hls_Config: 'hlsjs:config',
+  volume: 'hlsjs:volume',
+  demo_tabs: 'hlsjs:demo-tabs'
 };
 
 const testStreams = require('../tests/test-streams');
@@ -36,7 +38,8 @@ let dumpfMP4 = getDemoConfigPropOrDefault('dumpfMP4', false);
 
 let bufferingIdx = -1;
 let selectedTestStream = null;
-const video = $('#video')[0];
+
+const video = document.querySelector('#video');
 const startTime = Date.now();
 
 let lastSeekingIdx;
@@ -52,6 +55,30 @@ let fmp4Data;
 let configPersistenceEnabled = false;
 let configEditor = null;
 let chart;
+let resizeAsyncCallbackId = -1;
+
+const requestAnimationFrame = self.requestAnimationFrame || self.setTimeout;
+const cancelAnimationFrame = self.cancelAnimationFrame || self.clearTimeout;
+const resizeHandlers = [];
+const resize = () => {
+  cancelAnimationFrame(resizeAsyncCallbackId);
+  resizeAsyncCallbackId = requestAnimationFrame(() => {
+    resizeHandlers.forEach(handler => {
+      handler();
+    });
+  });
+};
+
+self.onresize = resize;
+if (self.screen && self.screen.orientation) {
+  self.screen.orientation.onchange = resize;
+}
+
+const playerResize = () => {
+  const bounds = video.getBoundingClientRect();
+  $('#currentSize').html(`${Math.round(bounds.width * 10) / 10} x ${Math.round(bounds.height * 10) / 10}`);
+};
+resizeHandlers.push(playerResize);
 
 $(document).ready(function () {
   setupConfigEditor();
@@ -63,9 +90,21 @@ $(document).ready(function () {
     const option = new Option(stream.description, key);
     $('#streamSelect').append(option);
     if (stream.url === sourceURL) {
-      $('#streamSelect')[0].selectedIndex = index + 1;
+      document.querySelector('#streamSelect').selectedIndex = index + 1;
     }
   });
+
+  const videoWidth = video.style.width;
+  if (videoWidth) {
+    $('#videoSize option').each(function (i, option) {
+      if (option.value === videoWidth) {
+        document.querySelector('#videoSize').selectedIndex = i;
+        $('#bufferedCanvas').width(videoWidth);
+        resize();
+        return false;
+      }
+    });
+  }
 
   $('#streamSelect').change(function () {
     selectedTestStream = testStreams[$('#streamSelect').val()];
@@ -82,6 +121,8 @@ $(document).ready(function () {
   $('#videoSize').change(function () {
     $('#video').width($('#videoSize').val());
     $('#bufferedCanvas').width($('#videoSize').val());
+    checkBuffer();
+    resize();
   });
 
   $('#enableStreaming').click(function () {
@@ -134,23 +175,39 @@ $(document).ready(function () {
 
   const version = Hls.version;
   if (version) {
-    const $a = $('<a />').attr('target', '_blank').attr('href', getVersionLink(version)).text('v' + version);
+    const $a = $('<a />').attr('target', '_blank').attr('rel', 'noopener noreferrer').attr('href', getVersionLink(version)).text('v' + version);
     $('.title').append($a);
   }
 
   $('#streamURL').val(sourceURL);
 
-  video.volume = 0.05;
+  const volumeSettings = JSON.parse(localStorage.getItem(STORAGE_KEYS.volume)) || {
+    volume: 0.05,
+    muted: false
+  };
+  video.volume = volumeSettings.volume;
+  video.muted = volumeSettings.muted;
 
   $('.btn-dump').toggle(dumpfMP4);
   $('#toggleButtons').show();
-  toggleTab($('.demo-tab-btn')[0]);
 
   $('#metricsButtonWindow').toggle(self.windowSliding);
   $('#metricsButtonFixed').toggle(!self.windowSliding);
 
   loadSelectedStream();
+
+  let tabIndexesCSV = localStorage.getItem(STORAGE_KEYS.demo_tabs);
+  if (tabIndexesCSV === null) {
+    tabIndexesCSV = '0,1,2';
+  }
+  if (tabIndexesCSV) {
+    tabIndexesCSV.split(',').forEach(indexString => {
+      toggleTab($('.demo-tab-btn')[parseInt(indexString) || 0], true);
+    });
+  }
 });
+
+
 
 function setupGlobals () {
   self.events = events = {
@@ -176,6 +233,7 @@ function setupGlobals () {
   self.createfMP4 = createfMP4;
   self.goToMetricsPermaLink = goToMetricsPermaLink;
   self.toggleTab = toggleTab;
+  self.toggleTabClick = toggleTabClick;
   self.applyConfigEditorValue = applyConfigEditorValue;
 }
 
@@ -216,10 +274,7 @@ function loadSelectedStream () {
 
   if (hls) {
     hls.destroy();
-    if (hls.bufferTimer) {
-      clearInterval(hls.bufferTimer);
-      hls.bufferTimer = undefined;
-    }
+    clearInterval(hls.bufferTimer);
     hls = null;
   }
 
@@ -264,6 +319,7 @@ function loadSelectedStream () {
 
   hls.on(Hls.Events.MEDIA_DETACHED, function () {
     logStatus('Media element detached');
+    clearInterval(hls.bufferTimer);
     bufferingIdx = -1;
     tracks = [];
     events.video.push({
@@ -271,6 +327,13 @@ function loadSelectedStream () {
       type: 'Media detached'
     });
     trimEventHistory();
+  });
+
+  hls.on(Hls.Events.DESTROYING, function () {
+    clearInterval(hls.bufferTimer);
+  });
+  hls.on(Hls.Events.BUFFER_RESET, function () {
+    clearInterval(hls.bufferTimer);
   });
 
   hls.on(Hls.Events.FRAG_PARSING_INIT_SEGMENT, function (eventName, data) {
@@ -424,14 +487,15 @@ function loadSelectedStream () {
       duration: data.frag.duration,
       level: event.id
     });
-    if (hls.bufferTimer === undefined) {
+    if (events.buffer.length === 0) {
       events.buffer.push({
         time: 0,
         buffer: 0,
         pos: 0
       });
-      hls.bufferTimer = self.setInterval(checkBuffer, 100);
     }
+    clearInterval(hls.bufferTimer);
+    hls.bufferTimer = self.setInterval(checkBuffer, 100);
     trimEventHistory();
     self.refreshCanvas();
     updateLevelInfo();
@@ -585,15 +649,18 @@ function loadSelectedStream () {
       break;
     case Hls.ErrorDetails.LEVEL_EMPTY_ERROR:
       logError('Loaded level contains no fragments ' + data.level + ' ' + data.url);
-      handleLevelError(data);
+      // handleLevelError demonstrates how to remove a level that errors followed by a downswitch
+      // handleLevelError(data);
       break;
     case Hls.ErrorDetails.LEVEL_LOAD_ERROR:
       logError('Error while loading level playlist ' + data.context.level + ' ' + data.url);
-      handleLevelError(data);
+      // handleLevelError demonstrates how to remove a level that errors followed by a downswitch
+      // handleLevelError(data);
       break;
     case Hls.ErrorDetails.LEVEL_LOAD_TIMEOUT:
       logError('Timeout while loading level playlist ' + data.context.level + ' ' + data.url);
-      handleLevelError(data);
+      // handleLevelError demonstrates how to remove a level that errors followed by a downswitch
+      // handleLevelError(data);
       break;
     case Hls.ErrorDetails.LEVEL_SWITCH_ERROR:
       logError('Error while trying to switch to level ' + data.level);
@@ -714,6 +781,12 @@ function loadSelectedStream () {
   video.addEventListener('loadedmetadata', handleVideoEvent);
   video.addEventListener('loadeddata', handleVideoEvent);
   video.addEventListener('durationchange', handleVideoEvent);
+  video.addEventListener('volumechange', (evt) => {
+      localStorage.setItem(STORAGE_KEYS.volume, JSON.stringify({
+        muted: video.muted,
+        volume: video.volume
+      }));
+  });
 }
 
 function handleUnsupported () {
@@ -737,6 +810,7 @@ function handleVideoEvent (evt) {
     break;
   case 'resize':
     data = evt.target.videoWidth + '/' + evt.target.videoHeight;
+    playerResize();
     break;
   case 'loadedmetadata':
   case 'loadeddata':
@@ -846,32 +920,30 @@ function timeRangesToString (r) {
 }
 
 function checkBuffer () {
-  const v = $('#video')[0];
-  const canvas = $('#bufferedCanvas')[0];
+  const canvas = document.querySelector('#bufferedCanvas');
   const ctx = canvas.getContext('2d');
-  const r = v.buffered;
+  const r = video.buffered;
   let bufferingDuration;
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'gray';
   if (r) {
-    if (!canvas.width || canvas.width !== v.clientWidth) {
-      canvas.width = v.clientWidth;
+    ctx.fillStyle = 'black';
+    if (!canvas.width || canvas.width !== video.clientWidth) {
+      canvas.width = video.clientWidth;
     }
-
-    const pos = v.currentTime;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const pos = video.currentTime;
     let bufferLen = 0;
+    ctx.fillStyle = 'gray';
     for (let i = 0; i < r.length; i++) {
-      const start = r.start(i) / v.duration * canvas.width;
-      const end = r.end(i) / v.duration * canvas.width;
-      ctx.fillRect(start, 3, Math.max(2, end - start), 10);
+      const start = r.start(i) / video.duration * canvas.width;
+      const end = r.end(i) / video.duration * canvas.width;
+      ctx.fillRect(start, 2, Math.max(2, end - start), 11);
       if (pos >= r.start(i) && pos < r.end(i)) {
         // play position is inside this buffer TimeRange, retrieve end of buffer position and buffer length
         bufferLen = r.end(i) - pos;
       }
     }
     // check if we are in buffering / or playback ended state
-    if (bufferLen <= 0.1 && v.paused === false && (pos - lastStartPosition) > 0.5) {
+    if (bufferLen <= 0.1 && video.paused === false && (pos - lastStartPosition) > 0.5) {
       if (lastDuration - pos <= 0.5 && events.isLive === false) {
         // don't create buffering event if we are at the end of the playlist, don't report ended for live playlist
       } else {
@@ -928,27 +1000,33 @@ function checkBuffer () {
     trimEventHistory();
     self.refreshCanvas();
 
-    let log = `Duration: ${v.duration}\nBuffered: ${timeRangesToString(v.buffered)}\nSeekable: ${timeRangesToString(v.seekable)}\nPlayed: ${timeRangesToString(v.played)}\n`;
+    if ($('#statsDisplayTab').is(':visible')) {
+      let log = `Duration: ${video.duration}\nBuffered: ${timeRangesToString(video.buffered)}\nSeekable: ${timeRangesToString(video.seekable)}\nPlayed: ${timeRangesToString(video.played)}\n`;
 
-    if (hls.media) {
-      for (const type in tracks) {
-        log += 'Buffer for ' + type + ' contains: ' + timeRangesToString(tracks[type].buffer.buffered) + '\n';
+      if (hls.media) {
+        for (const type in tracks) {
+          log += 'Buffer for ' + type + ' contains: ' + timeRangesToString(tracks[type].buffer.buffered) + '\n';
+        }
+
+        const videoPlaybackQuality = video.getVideoPlaybackQuality;
+        if (videoPlaybackQuality && typeof (videoPlaybackQuality) === typeof (Function)) {
+          log += `Dropped frames: ${video.getVideoPlaybackQuality().droppedVideoFrames}\n`;
+          log += `Corrupted frames: ${video.getVideoPlaybackQuality().corruptedVideoFrames}\n`;
+        } else if (video.webkitDroppedFrameCount) {
+          log += `Dropped frames: ${video.webkitDroppedFrameCount}`;
+        }
       }
 
-      const videoPlaybackQuality = v.getVideoPlaybackQuality;
-      if (videoPlaybackQuality && typeof (videoPlaybackQuality) === typeof (Function)) {
-        log += `Dropped frames: ${v.getVideoPlaybackQuality().droppedVideoFrames}\n`;
-        log += `Corrupted frames: ${v.getVideoPlaybackQuality().corruptedVideoFrames}\n`;
-      } else if (v.webkitDroppedFrameCount) {
-        log += `Dropped frames: ${v.webkitDroppedFrameCount}`;
-      }
+      $('#bufferedOut').text(log);
+      $('#statisticsOut').text(JSON.stringify(sortObject(stats), null, '\t'));
     }
 
-    $('#bufferedOut').text(log);
-    $('#statisticsOut').text(JSON.stringify(sortObject(stats), null, '\t'));
     ctx.fillStyle = 'blue';
-    const x = v.currentTime / v.duration * canvas.width;
+    const x = video.currentTime / video.duration * canvas.width;
     ctx.fillRect(x, 0, 2, 15);
+  } else if (ctx.fillStyle !== 'black') {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 }
 
@@ -989,10 +1067,9 @@ function goToMetricsPermaLink () {
 }
 
 function onClickBufferedRange (event) {
-  const canvas = $('#bufferedCanvas')[0];
-  const v = $('#video')[0];
-  const target = (event.clientX - canvas.offsetLeft) / canvas.width * v.duration;
-  v.currentTime = target;
+  const canvas = document.querySelector('#bufferedCanvas');
+  const target = (event.clientX - canvas.offsetLeft) / canvas.width * video.duration;
+  video.currentTime = target;
 }
 
 function updateLevelInfo () {
@@ -1083,10 +1160,8 @@ function updateLevelInfo () {
     html4 += 'onclick="hls.nextLevel=' + i + '">' + levelName + '</button>';
   }
 
-  const v = $('#video')[0];
-
-  if (v.videoWidth && v.videoHeight) {
-    $('#currentResolution').html(v.videoWidth + ' x ' + v.videoHeight);
+  if (video.videoWidth && video.videoHeight) {
+    $('#currentResolution').html(`${video.videoWidth} x ${video.videoHeight}`);
   }
 
   if ($('#currentLevelControl').html() !== html1) {
@@ -1259,10 +1334,10 @@ function setupTimelineChart () {
     responsive: false
   });
 
-  self.onresize = () => chart.resize();
-  if (self.screen && self.screen.orientation) {
-    self.screen.orientation.addEventListener('change', self.onresize);
-  }
+  resizeHandlers.push(() => {
+    chart.resize();
+  });
+
   chart.resize();
 
   return chart;
@@ -1407,10 +1482,18 @@ function hideAllTabs () {
   $('.demo-tab').hide();
 }
 
-function toggleTab (btn) {
+function toggleTabClick (btn) {
+  toggleTab(btn);
+  const tabIndexes = $('.demo-tab-btn').toArray()
+    .map((el, i) => $('#' + $(el).data('tab')).is(':visible') ? i : null)
+    .filter(i => i !== null);
+  localStorage.setItem(STORAGE_KEYS.demo_tabs, tabIndexes.join(','));
+}
+
+function toggleTab (btn, dontHideOpenTabs) {
   const tabElId = $(btn).data('tab');
   // eslint-disable-next-line no-restricted-globals
-  const modifierPressed = window.event && (window.event.metaKey || window.event.shiftKey);
+  const modifierPressed = dontHideOpenTabs || window.event && (window.event.metaKey || window.event.shiftKey);
   if (!modifierPressed) {
     hideAllTabs();
   }
