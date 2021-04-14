@@ -102,6 +102,7 @@ class Demuxer {
     const trackSwitch = !(lastFrag && (frag.level === lastFrag.level));
     const nextSN = lastFrag && (frag.sn === (lastFrag.sn + 1));
     const contiguous = !trackSwitch && nextSN;
+    const initSegmentChange = !(lastFrag && (frag.initSegment === lastFrag.initSegment));
     if (discontinuity) {
       logger.log(`${this.id}:discontinuity detected`);
     }
@@ -110,14 +111,18 @@ class Demuxer {
       logger.log(`${this.id}:switch detected`);
     }
 
+    if (initSegmentChange) {
+      logger.log(`${this.id}:init segment change detected`);
+    }
+
     this.frag = frag;
     if (w) {
       // post fragment payload as transferable objects for ArrayBuffer (no copy)
-      w.postMessage({ cmd: 'demux', data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS }, data instanceof ArrayBuffer ? [data] : []);
+      w.postMessage({ cmd: 'demux', data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS, initSegmentChange }, data instanceof ArrayBuffer ? [data] : []);
     } else {
       let demuxer = this.demuxer;
       if (demuxer) {
-        demuxer.push(data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS);
+        demuxer.push(data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS, initSegmentChange);
       }
     }
   }

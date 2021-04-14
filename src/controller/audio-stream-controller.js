@@ -205,13 +205,17 @@ class AudioStreamController extends BaseStreamController {
             // Ensure we find a fragment which matches the continuity of the video track
             frag = findFragWithCC(fragments, this.videoTrackCC);
           }
-          if (trackDetails.live && frag.loadIdx && frag.loadIdx === this.fragLoadIdx) {
+          if (trackDetails.live && frag && frag.loadIdx && frag.loadIdx === this.fragLoadIdx) {
             // we just loaded this first fragment, and we are still lagging behind the start of the live playlist
             // let's force seek to start
             const nextBuffered = bufferInfo.nextStart ? bufferInfo.nextStart : start;
             logger.log(`no alt audio available @currentTime:${this.media.currentTime}, seeking @${nextBuffered + 0.05}`);
             this.media.currentTime = nextBuffered + 0.05;
             return;
+          } else {
+            if (trackDetails.live && !frag) {
+              logger.log('skipping nudge, no fragment is available yet.');
+            }
           }
         } else {
           let foundFrag;
