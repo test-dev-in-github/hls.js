@@ -8,8 +8,7 @@ const until = webdriver.until;
 require('chromedriver');
 const HttpServer = require('http-server');
 const streams = require('../../test-streams');
-const onTravis = !!process.env.TRAVIS;
-const useSauce = !!process.env.SAUCE || onTravis;
+const useSauce = !!process.env.SAUCE || !!process.env.SAUCE_TUNNEL_ID;
 const chai = require('chai');
 const expect = chai.expect;
 
@@ -35,6 +34,10 @@ if (useSauce) {
   let OS = process.env.OS;
   if (!OS) {
     throw new Error('No test browser platform.');
+  }
+
+  if (!process.env.SAUCE_ACCESS_KEY || !process.env.SAUCE_USERNAME) {
+    throw new Error('Missing sauce auth.');
   }
 
   let UA_VERSION = process.env.UA_VERSION;
@@ -137,10 +140,12 @@ async function testSmoothSwitch (url, config) {
         if (data.level === highestLevel) {
           window.setTimeout(function () {
             let newCurrentTime = video.currentTime;
+            const paused = video.paused;
             console.log('[test] > currentTime delta: ' + (newCurrentTime - currentTime));
             callback({
               highestLevel: highestLevel,
               currentTimeDelta: newCurrentTime - currentTime,
+              paused,
               logs: window.logString
             });
           }, 2000);
@@ -180,11 +185,22 @@ async function testSeekOnVOD (url, config) {
       const video = window.video;
       video.onloadeddata = function () {
         window.setTimeout(function () {
-          video.currentTime = video.duration - 5;
-          // Fail test early if more than 2 buffered ranges are found
+          const duration = video.duration;
+          // After seeking timeout if paused after 5 seconds
+          video.onseeked = function () {
+            window.setTimeout(function () {
+              const { currentTime, paused } = video;
+              if (video.currentTime === 0 || video.paused) {
+                callback({ code: 'paused', currentTime, paused, duration, logs: window.logString });
+              }
+            }, 5000);
+          };
+          video.currentTime = duration - 5;
+          // Fail test early if more than 2 buffered ranges are found (with configured exceptions)
+          const allowedBufferedRanges = config.allowedBufferedRangesInSeekTest || 2;
           video.onprogress = function () {
-            if (video.buffered.length > 2) {
-              callback({ code: 'buffer-gaps', bufferedRanges: video.buffered.length, logs: window.logString });
+            if (video.buffered.length > allowedBufferedRanges) {
+              callback({ code: 'buffer-gaps', bufferedRanges: video.buffered.length, duration, logs: window.logString });
             }
           };
         }, 5000);
@@ -285,7 +301,7 @@ async function sauceConnect (tunnelIdentifier) {
     console.log(`Running sauce-connect-launcher. Tunnel id: ${tunnelIdentifier}`);
     sauceConnectLauncher({
       tunnelIdentifier
-    }, function (err, sauceConnectProcess) {
+    }, (err, sauceConnectProcess) => {
       if (err) {
         console.error(err.message);
         reject(err);
@@ -317,7 +333,7 @@ describe(`testing hls.js playback in the browser on "${browserDescription}"`, fu
       throw new Error('Stream not defined');
     }
 
-    const labelBranch = process.env.TRAVIS_BRANCH || 'unknown';
+    const labelBranch = process.env.GITHUB_REF || 'unknown';
     let capabilities = {
       name: `hls.js@${labelBranch} on "${browserDescription}"`,
       browserName: browserConfig.name,
@@ -336,14 +352,16 @@ describe(`testing hls.js playback in the browser on "${browserDescription}"`, fu
     }
 
     browser = new webdriver.Builder();
-    if (onTravis) {
-      capabilities['tunnel-identifier'] = process.env.TRAVIS_JOB_NUMBER;
-      capabilities.build = 'HLSJS-' + process.env.TRAVIS_BUILD_NUMBER;
-    } else if (useSauce) {
-      capabilities['tunnel-identifier'] = `local-${Date.now()}`;
-    }
     if (useSauce) {
-      sauceConnectProcess = await sauceConnect(capabilities['tunnel-identifier']);
+      if (process.env.SAUCE_TUNNEL_ID) {
+        capabilities['tunnel-identifier'] = process.env.SAUCE_TUNNEL_ID;
+        capabilities.build = 'HLSJS-' + process.env.SAUCE_TUNNEL_ID;
+      } else {
+        capabilities['tunnel-identifier'] = `local-${Date.now()}`;
+      }
+      if (!process.env.SAUCE_TUNNEL_ID) {
+        sauceConnectProcess = await sauceConnect(capabilities['tunnel-identifier']);
+      }
       capabilities.username = process.env.SAUCE_USERNAME;
       capabilities.accessKey = process.env.SAUCE_ACCESS_KEY;
       capabilities.avoidProxy = true;
@@ -413,7 +431,7 @@ describe(`testing hls.js playback in the browser on "${browserDescription}"`, fu
     const failed = this.currentTest.isFailed();
     if (printDebugLogs || failed) {
       const logString = await browser.executeScript('return logString');
-      console.log(`${onTravis ? 'travis_fold:start:debug_logs' : ''}\n${logString}\n${onTravis ? 'travis_fold:end:debug_logs' : ''}`);
+      console.log(logString);
       if (failed && useSauce) {
         browser.executeScript('sauce:job-result=failed');
       }

@@ -1,5 +1,6 @@
 import VTTParser from './vttparser';
 import { utf8ArrayToStr } from '../demux/id3';
+import { toMpegTsClockFromTimescale } from './timescale-conversion';
 
 // String.prototype.startsWith is not supported in IE11
 const startsWith = function (inputString, searchString, position) {
@@ -34,6 +35,12 @@ const hash = function (text) {
   return (hash >>> 0).toString();
 };
 
+// Create a unique hash id for a cue based on start/end times and text.
+// This helps timeline-controller to avoid showing repeated captions.
+export function generateCueId (startTime, endTime, text) {
+  return hash(startTime.toString()) + hash(endTime.toString()) + hash(text);
+}
+
 const calculateOffset = function (vttCCs, cc, presentationTime) {
   let currCC = vttCCs[cc];
   let prevCC = vttCCs[currCC.prevCC];
@@ -58,13 +65,14 @@ const calculateOffset = function (vttCCs, cc, presentationTime) {
   vttCCs.presentationOffset = presentationTime;
 };
 
-const WebVTTParser = {
-  parse: function (vttByteArray, syncPTS, vttCCs, cc, callBack, errorCallBack) {
+export const WebVTTParser = {
+  parse: function (vttByteArray, initPTS, timescale, vttCCs, cc, callBack, errorCallBack) {
     // Convert byteArray into string, replacing any somewhat exotic linefeeds with "\n", then split on that character.
     let re = /\r\n|\n\r|\n|\r/g;
     // Uint8Array.prototype.reduce is not implemented in IE11
     let vttLines = utf8ArrayToStr(new Uint8Array(vttByteArray)).trim().replace(re, '\n').split('\n');
 
+    let syncPTS = toMpegTsClockFromTimescale(initPTS, timescale);
     let cueTime = '00:00.000';
     let mpegTs = 0;
     let localTime = 0;
@@ -103,9 +111,7 @@ const WebVTTParser = {
         cue.endTime += cueOffset - localTime;
       }
 
-      // Create a unique hash id for a cue based on start/end times and text.
-      // This helps timeline-controller to avoid showing repeated captions.
-      cue.id = hash(cue.startTime.toString()) + hash(cue.endTime.toString()) + hash(cue.text);
+      cue.id = generateCueId(cue.startTime, cue.endTime, cue.text);
 
       // Fix encoding of special characters. TODO: Test with all sorts of weird characters.
       cue.text = decodeURIComponent(encodeURIComponent(cue.text));
@@ -170,5 +176,3 @@ const WebVTTParser = {
     parser.flush();
   }
 };
-
-export default WebVTTParser;
