@@ -171,15 +171,21 @@ module.exports = {
   //   description: 'Alternate audio track, but no video codec is signaled in the master manifest'
   // },
   altAudioAndTracks: {
-    url: 'https://wowzaec2demo.streamlock.net/vod-multitrack/_definst_/smil:ElephantsDream/elephantsdream2.smil/playlist.m3u',
+    url: 'https://playertest.longtailvideo.com/adaptive/elephants_dream_v4/index.m3u8',
     description: 'Alternate audio tracks, and multiple VTT tracks',
+    vendor: 'wowza',
     abr: true
   },
-  altAudioAudioOnly: {
+  altAudioAudioOnly: createTestStreamWithConfig({
     url: 'https://playertest.longtailvideo.com/adaptive/alt-audio-no-video/sintel/playlist.m3u8',
     description: 'Audio only with alternate audio track (Sintel)',
     abr: false
-  },
+  }, {
+    // the playlist segment durations are longer than the media. So much so, that when seeking near the end,
+    // the timeline shifts roughly 10 seconds seconds back, and as a result buffering skips several segments
+    // to adjust for the currentTime now being places at the very end of the stream.
+    allowedBufferedRangesInSeekTest: 3
+  }),
   altAudioMultiAudioOnly: {
     url: 'https://playertest.longtailvideo.com/adaptive/alt-audio-no-video/angel-one.m3u8',
     description: 'Audio only with multiple alternate audio tracks (Angel One)',
