@@ -1,5 +1,7 @@
 import { fixLineBreaks } from './vttparser';
 import { CaptionScreen, Row } from './cea-608-parser';
+import { addCueToTrack } from './texttrack-utils';
+import { generateCueId } from './webvtt-parser';
 
 export interface CuesInterface {
   newCue (track: TextTrack | null, startTime: number, endTime: number, captionScreen: CaptionScreen): VTTCue[]
@@ -54,6 +56,7 @@ export function newCue (track: TextTrack | null, startTime: number, endTime: num
         indent++;
       }
 
+      cue.id = generateCueId(cue.startTime, cue.endTime, cue.text);
       cue.line = r + 1;
       cue.align = 'left';
       // Clamp the position between 0 and 100 - if out of these bounds, Firefox throws an exception and captions break
@@ -63,11 +66,15 @@ export function newCue (track: TextTrack | null, startTime: number, endTime: num
   }
   if (track && result.length) {
     // Sort bottom cues in reverse order so that they render in line order when overlapping in Chrome
-    return result.sort((cueA, cueB) => {
+    result.sort((cueA, cueB) => {
       if (cueA.line > 8 && cueB.line > 8) {
         return cueB.line - cueA.line;
       }
       return cueA.line - cueB.line;
+    });
+
+    result.forEach(cue => {
+      addCueToTrack(track, cue as any);
     });
   }
   return result;
