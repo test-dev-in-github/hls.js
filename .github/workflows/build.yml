@@ -31,7 +31,7 @@ jobs:
           script: |
             const prefix = 'refs/tags/';
             const ref = context.ref;
-            return ref.startsWith(prefix) ? ref.substring(prefix.length) : '';   
+            return ref.startsWith(prefix) ? ref.substring(prefix.length) : '';
           result-encoding: string
 
   build:
@@ -65,7 +65,7 @@ jobs:
           npm ci
         env:
           CI: true
-      
+
       - name: set version
         run: |
           node ./scripts/set-package-version.js
@@ -228,7 +228,7 @@ jobs:
     needs: [config, test_unit]
     if: needs.config.outputs.tag || needs.config.outputs.isMainBranch == 'true'
     runs-on: ubuntu-latest
-    steps:  
+    steps:
       - uses: actions/checkout@v2
 
       - name: cache node_modules

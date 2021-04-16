@@ -58,3 +58,32 @@ export function getClosestCue (cues: TextTrackCueList | TextTrackCue[], time: nu
   // No direct match was found, left or right element must be the closest. Check which one has the smallest diff.
   return (cues[left].endTime - time) < (time - cues[right].endTime) ? cues[left] : cues[right];
 }
+
+export function addCueToTrack (track: TextTrack, cue: VTTCue) {
+  // Sometimes there are cue overlaps on segmented vtts so the same
+  // cue can appear more than once in different vtt files.
+  // This avoid showing duplicated cues with same timecode and text.
+  const mode = track.mode;
+  if (mode === 'disabled') {
+    track.mode = 'hidden';
+  }
+  if (track.cues && !track.cues.getCueById(cue.id)) {
+    try {
+      track.addCue(cue);
+      if (!track.cues.getCueById(cue.id)) {
+        throw new Error(`addCue is failed for: ${cue}`);
+      }
+    } catch (err) {
+      const textTrackCue = new (self.TextTrackCue as any)(
+        cue.startTime,
+        cue.endTime,
+        cue.text
+      );
+      textTrackCue.id = cue.id;
+      track.addCue(textTrackCue);
+    }
+  }
+  if (mode === 'disabled') {
+    track.mode = mode;
+  }
+}
