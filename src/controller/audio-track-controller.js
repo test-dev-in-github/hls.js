@@ -1,6 +1,7 @@
 import Event from '../events';
 import TaskLoop from '../task-loop';
 import { logger } from '../utils/logger';
+import { findTrackById } from '../utils/findTrackById';
 import { ErrorTypes, ErrorDetails } from '../errors';
 
 /**
@@ -111,7 +112,7 @@ class AudioTrackController extends TaskLoop {
 
     logger.log(`audioTrack ${data.id} loaded`);
 
-    this.tracks[data.id].details = data.details;
+    findTrackById(this.tracks, data.id).details = data.details;
 
     // check if current playlist is a live playlist
     // and if we have already our reload interval setup
@@ -137,7 +138,7 @@ class AudioTrackController extends TaskLoop {
    * @param {*} data
    */
   onAudioTrackSwitched (data) {
-    const audioGroupId = this.tracks[data.id].groupId;
+    const audioGroupId = findTrackById(this.tracks, data.id).groupId;
     if (audioGroupId && (this.audioGroupId !== audioGroupId)) {
       this.audioGroupId = audioGroupId;
     }
@@ -211,7 +212,7 @@ class AudioTrackController extends TaskLoop {
    */
   _setAudioTrack (newId) {
     // noop on same audio track id as already set
-    if (this._trackId === newId && this.tracks[this._trackId].details) {
+    if (this._trackId === newId && findTrackById(this.tracks, this._trackId).details) {
       logger.debug('Same id as current audio-track passed, and track details available -> no-op');
       return;
     }
@@ -222,7 +223,7 @@ class AudioTrackController extends TaskLoop {
       return;
     }
 
-    const audioTrack = this.tracks[newId];
+    const audioTrack = findTrackById(this.tracks, newId);
 
     logger.log(`Now switching to audio-track index ${newId}`);
 
@@ -270,7 +271,7 @@ class AudioTrackController extends TaskLoop {
       return;
     }
 
-    const currentAudioTrack = this.tracks[this._trackId];
+    const currentAudioTrack = findTrackById(this.tracks, this._trackId);
 
     let name = null;
     if (currentAudioTrack) {
@@ -368,7 +369,7 @@ class AudioTrackController extends TaskLoop {
     this.clearInterval();
     this._trackId = newId;
     logger.log(`trying to update audio-track ${newId}`);
-    const audioTrack = this.tracks[newId];
+    const audioTrack = findTrackById(this.tracks, newId);
     this._loadTrackDetailsIfNeeded(audioTrack);
   }
 
@@ -381,7 +382,7 @@ class AudioTrackController extends TaskLoop {
 
     // Let's try to fall back on a functional audio-track with the same group ID
     const previousId = this._trackId;
-    const { name, language, groupId } = this.tracks[previousId];
+    const { name, language, groupId } = findTrackById(this.tracks, previousId);
 
     logger.warn(`Loading failed on audio track id: ${previousId}, group-id: ${groupId}, name/language: "${name}" / "${language}"`);
 
@@ -392,7 +393,7 @@ class AudioTrackController extends TaskLoop {
       if (this.trackIdBlacklist[i]) {
         continue;
       }
-      const newTrack = this.tracks[i];
+      const newTrack = findTrackById(this.tracks, i);
       if (newTrack.name === name) {
         newId = i;
         break;
@@ -404,7 +405,7 @@ class AudioTrackController extends TaskLoop {
       return;
     }
 
-    logger.log('Attempting audio-track fallback id:', newId, 'group-id:', this.tracks[newId].groupId);
+    logger.log('Attempting audio-track fallback id:', newId, 'group-id:', findTrackById(this.tracks, newId).groupId);
 
     this._setAudioTrack(newId);
   }
