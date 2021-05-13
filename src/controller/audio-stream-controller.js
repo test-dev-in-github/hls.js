@@ -353,14 +353,6 @@ class AudioStreamController extends BaseStreamController {
     }
   }
 
-  findTrackById (tracks, trackId) {
-    for (const track of tracks) {
-      if (track.id === trackId) {
-        return track;
-      }
-    }
-  }
-
   onMediaAttached (data) {
     let media = this.media = this.mediaBuffer = data.media;
     this.onvseeking = this.onMediaSeeking.bind(this);
