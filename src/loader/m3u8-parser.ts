@@ -332,21 +332,20 @@ export default class M3U8Parser {
         }
         case 'MAP': {
           const mapAttrs = new AttrList(value1);
-          frag.relurl = mapAttrs.URI;
+          const init = new Fragment();
+          init.relurl = mapAttrs.URI;
           if (mapAttrs.BYTERANGE) {
-            frag.setByteRange(mapAttrs.BYTERANGE);
+            init.setByteRange(mapAttrs.BYTERANGE);
           }
-          frag.baseurl = baseurl;
-          frag.level = id;
-          frag.type = type;
-          frag.sn = 'initSegment';
+          init.baseurl = baseurl;
+          init.level = id;
+          init.type = type;
+          init.sn = 'initSegment';
           if (!level.initSegment) {
-            level.initSegment = frag;
+            level.initSegment = init;
           }
-          initSegment = new InitSegment(frag);
-          level.initSegments[frag.relurl] = initSegment;
-          frag = new Fragment();
-          frag.rawProgramDateTime = level.initSegment.rawProgramDateTime;
+          initSegment = new InitSegment(init);
+          level.initSegments[init.relurl] = initSegment;
           break;
         }
         default:
