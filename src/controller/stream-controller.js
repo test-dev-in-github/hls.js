@@ -14,6 +14,7 @@ import TimeRanges from '../utils/time-ranges';
 import { ErrorDetails } from '../errors';
 import { logger } from '../utils/logger';
 import { alignStream } from '../utils/discontinuities';
+import { findTrackById } from '../utils/findTrackById';
 import { findFragmentByPDT, findFragmentByPTS } from './fragment-finders';
 import GapController, { MAX_START_GAP_JUMP } from './gap-controller';
 import BaseStreamController, { State } from './base-stream-controller';
@@ -1131,7 +1132,7 @@ class StreamController extends BaseStreamController {
 
   onAudioTrackSwitched (data) {
     let trackId = data.id,
-      altAudio = !!this.hls.audioTracks[trackId].url;
+      altAudio = !!findTrackById(this.hls.audioTracks, trackId).url;
     if (altAudio) {
       let videoBuffer = this.videoBuffer;
       // if we switched on alternate audio, ensure that main fragment scheduling is synced with video sourcebuffer buffered

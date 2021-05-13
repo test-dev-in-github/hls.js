@@ -13,6 +13,7 @@ import { logger } from '../utils/logger';
 import { findFragWithCC } from '../utils/discontinuities';
 import { FragmentState } from './fragment-tracker';
 import { ElementaryStreamTypes } from '../loader/fragment';
+import { findTrackById } from '../utils/findTrackById';
 import BaseStreamController, { State } from './base-stream-controller';
 import { MAX_START_GAP_JUMP } from './gap-controller';
 import { fragmentWithinToleranceTest } from './fragment-finders';
@@ -160,7 +161,7 @@ class AudioStreamController extends BaseStreamController {
 
         // if buffer length is less than maxBufLen try to load a new fragment
       if ((bufferLen < maxBufLen || audioSwitch) && trackId < tracks.length) {
-        trackDetails = tracks[trackId].details;
+        trackDetails = findTrackById(tracks, trackId).details;
         // if track info not retrieved yet, switch state and wait for track retrieval
         if (typeof trackDetails === 'undefined') {
           this.state = State.WAITING_TRACK;
@@ -286,7 +287,7 @@ class AudioStreamController extends BaseStreamController {
       }
       break;
     case State.WAITING_TRACK:
-      track = this.tracks[this.trackId];
+      track = findTrackById(this.tracks, this.trackId);
       // check if playlist is already loaded
       if (track && track.details) {
         this.state = State.IDLE;
@@ -349,6 +350,14 @@ class AudioStreamController extends BaseStreamController {
       this.waitingFragment = null;
       this.waitingVideoCC = null;
       this.state = State.IDLE;
+    }
+  }
+
+  findTrackById (tracks, trackId) {
+    for (const track of tracks) {
+      if (track.id === trackId) {
+        return track;
+      }
     }
   }
 
@@ -419,7 +428,7 @@ class AudioStreamController extends BaseStreamController {
   onAudioTrackLoaded (data) {
     let newDetails = data.details,
       trackId = data.id,
-      track = this.tracks[trackId],
+      track = findTrackById(this.tracks, trackId),
       curDetails = track.details,
       duration = newDetails.totalduration,
       sliding = 0;
@@ -491,7 +500,7 @@ class AudioStreamController extends BaseStreamController {
         fragLoaded.type === 'audio' &&
         fragLoaded.level === fragCurrent.level &&
         fragLoaded.sn === fragCurrent.sn) {
-      let track = this.tracks[this.trackId],
+      let track = findTrackById(this.tracks, this.trackId),
         details = track.details,
         duration = details.totalduration,
         trackId = fragCurrent.level,
@@ -585,7 +594,7 @@ class AudioStreamController extends BaseStreamController {
         fragNew.level === fragCurrent.level &&
         this.state === State.PARSING) {
       let trackId = this.trackId,
-        track = this.tracks[trackId],
+        track = findTrackById(this.tracks, trackId),
         hls = this.hls;
 
       if (!Number.isFinite(data.endPTS)) {

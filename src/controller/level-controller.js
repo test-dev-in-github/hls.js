@@ -7,6 +7,7 @@ import EventHandler from '../event-handler';
 import { logger } from '../utils/logger';
 import { ErrorTypes, ErrorDetails } from '../errors';
 import { isCodecSupportedInMp4 } from '../utils/codecs';
+import { findTrackById } from '../utils/findTrackById';
 import { addGroupId, computeReloadInterval } from './level-helper';
 
 let chromeOrFirefox;
@@ -482,7 +483,7 @@ export default class LevelController extends EventHandler {
   }
 
   onAudioTrackSwitched (data) {
-    const audioGroupId = this.hls.audioTracks[data.id].groupId;
+    const audioGroupId = findTrackById(this.hls.audioTracks, data.id).groupId;
 
     const currentLevel = this.hls.levels[this.currentLevelIndex];
     if (!currentLevel) {
