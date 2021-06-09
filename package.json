@@ -1,6 +1,6 @@
 {
   "name": "hls.js",
-  "version": "0.14.17-doris.8",
+  "version": "0.14.17-doris.9",
   "license": "Apache-2.0",
   "description": "JavaScript HLS client using MediaSourceExtension",
   "homepage": "https://github.com/video-dev/hls.js",
@@ -41,11 +41,6 @@
     "test:func:sauce": "SAUCE=1 UA=MicrosoftEdge OS='Windows 10' BABEL_ENV=development mocha tests/functional/auto/setup.js --timeout 40000 --exit",
     "type-check": "tsc --noEmit",
     "type-check:watch": "npm run type-check -- --watch"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "./scripts/precommit.sh"
-    }
   },
   "dependencies": {
     "eventemitter3": "^4.0.3",
