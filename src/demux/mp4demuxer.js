@@ -300,7 +300,9 @@ class MP4Demuxer {
           let version = tfdt.data[tfdt.start];
           let baseMediaDecodeTime = readUint32(tfdt, 4);
           if (version === 0) {
-            MP4Demuxer.writeUint32(tfdt, 4, baseMediaDecodeTime - timeOffset * timescale);
+            baseMediaDecodeTime -= timeOffset * timescale;
+            baseMediaDecodeTime = Math.max(baseMediaDecodeTime, 0);
+            MP4Demuxer.writeUint32(tfdt, 4, baseMediaDecodeTime);
           } else {
             baseMediaDecodeTime *= Math.pow(2, 32);
             baseMediaDecodeTime += readUint32(tfdt, 8);
