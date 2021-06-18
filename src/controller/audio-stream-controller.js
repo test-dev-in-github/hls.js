@@ -183,20 +183,15 @@ class AudioStreamController extends BaseStreamController {
 
         // When switching audio track, reload audio as close as possible to currentTime
         if (audioSwitch) {
-          if (trackDetails.live && !trackDetails.PTSKnown) {
-            logger.log('switching audiotrack, live stream, unknown PTS,load first fragment');
-            bufferEnd = 0;
-          } else {
-            bufferEnd = pos;
-            // if currentTime (pos) is less than alt audio playlist start time, it means that alt audio is ahead of currentTime
-            if (trackDetails.PTSKnown && pos < start) {
-              // if everything is buffered from pos to start or if audio buffer upfront, let's seek to start
-              if (bufferInfo.end > start || bufferInfo.nextStart) {
-                logger.log('alt audio track ahead of main track, seek to start of alt audio track');
-                this.media.currentTime = start + 0.05;
-              } else {
-                return;
-              }
+          bufferEnd = pos;
+          // if currentTime (pos) is less than alt audio playlist start time, it means that alt audio is ahead of currentTime
+          if (trackDetails.PTSKnown && pos < start) {
+            // if everything is buffered from pos to start or if audio buffer upfront, let's seek to start
+            if (bufferInfo.end > start || bufferInfo.nextStart) {
+              logger.log('alt audio track ahead of main track, seek to start of alt audio track');
+              this.media.currentTime = start + 0.05;
+            } else {
+              return;
             }
           }
         }
