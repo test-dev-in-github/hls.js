@@ -53,7 +53,9 @@ class AudioStreamController extends BaseStreamController {
 
   // Signal that video PTS was found
   onInitPtsFound (data) {
-    let demuxerId = data.id, cc = data.frag.cc, initPTS = data.initPTS;
+    let demuxerId = data.id;
+    let cc = data.frag.cc;
+    let initPTS = data.initPTS;
     if (demuxerId === 'main') {
       // Always update the new INIT PTS
       // Can change due level switch
@@ -103,7 +105,11 @@ class AudioStreamController extends BaseStreamController {
   }
 
   doTick () {
-    let pos, track, trackDetails, hls = this.hls, config = hls.config;
+    let pos;
+    let track;
+    let trackDetails;
+    let hls = this.hls;
+    let config = hls.config;
     // logger.log('audioStream:' + this.state);
     switch (this.state) {
     case State.ERROR:
@@ -175,11 +181,11 @@ class AudioStreamController extends BaseStreamController {
         }
 
         // find fragment index, contiguous with end of buffer position
-        let fragments = trackDetails.fragments,
-          fragLen = fragments.length,
-          start = fragments[0].start,
-          end = fragments[fragLen - 1].start + fragments[fragLen - 1].duration,
-          frag;
+        let fragments = trackDetails.fragments;
+        let fragLen = fragments.length;
+        let start = fragments[0].start;
+        let end = fragments[fragLen - 1].start + fragments[fragLen - 1].duration;
+        let frag;
 
         // When switching audio track, reload audio as close as possible to currentTime
         if (audioSwitch) {
@@ -201,6 +207,7 @@ class AudioStreamController extends BaseStreamController {
             // Ensure we find a fragment which matches the continuity of the video track
             frag = findFragWithCC(fragments, this.videoTrackCC);
           }
+
           if (trackDetails.live && frag && frag.loadIdx && frag.loadIdx === this.fragLoadIdx) {
             // we just loaded this first fragment, and we are still lagging behind the start of the live playlist
             // let's force seek to start
@@ -233,6 +240,15 @@ class AudioStreamController extends BaseStreamController {
             // reach end of playlist
             foundFrag = fragments[fragLen - 1];
           }
+
+          if (foundFrag) {
+            if (!this.loadedmetadata && this.videoTrackCC !== null && foundFrag.cc !== this.videoTrackCC) {
+              // Ensure we find a fragment which matches the continuity of the video track
+              foundFrag = findFragWithCC(fragments, this.videoTrackCC);
+              logger.debug(`Selected audio fragment by video CC ${this.videoTrackCC} for loading.`);
+            }
+          }
+
           if (foundFrag) {
             frag = foundFrag;
             start = foundFrag.start;
@@ -249,6 +265,7 @@ class AudioStreamController extends BaseStreamController {
             }
           }
         }
+
         if (frag) {
           // logger.log('      loading frag ' + i +',pos/bufEnd:' + pos.toFixed(3) + '/' + bufferEnd.toFixed(3));
           if (frag.encrypted) {
@@ -306,18 +323,24 @@ class AudioStreamController extends BaseStreamController {
       if (waitingFrag) {
         const waitingFragCC = waitingFrag.frag.cc;
         if (this.initPTS[waitingFragCC] !== undefined) {
+          // Load the waiting fragment if we received init PTS for it.
           this.waitingFragment = null;
+          this.waitingVideoCC = null;
           this.state = State.FRAG_LOADING;
           this.onFragLoaded(waitingFrag);
         } else if (this.videoTrackCC !== this.waitingVideoCC) {
           // Drop waiting fragment if videoTrackCC has changed since waitingFragment was set and initPTS was not found
-          logger.log(`Waiting fragment cc (${waitingFragCC}) cancelled because video is at cc ${this.videoTrackCC}`);
+          logger.log(`Waiting fragment cc (${waitingFragCC}) cancelled because video is now at cc ${this.videoTrackCC}`);
+          this.clearWaitingFragment();
+        } else if (!this.loadedmetadata && this.waitingVideoCC != null && waitingFragCC !== this.waitingVideoCC) {
+          // Drop waiting fragment if the initial video fragment doesn't match the waiting audio fragment
+          logger.log(`Waiting fragment cc (${waitingFragCC}) cancelled because video has loaded at ${this.waitingVideoCC}`);
           this.clearWaitingFragment();
         } else {
           // Drop waiting fragment if an earlier fragment is needed
           const bufferInfo = BufferHelper.bufferInfo(this.mediaBuffer, this.media.currentTime, config.maxBufferHole);
           const waitingFragmentAtPosition = fragmentWithinToleranceTest(bufferInfo.end, config.maxFragLookUpTolerance, waitingFrag.frag);
-          if (waitingFragmentAtPosition < 0) {
+          if (bufferInfo.end !== 0 && waitingFragmentAtPosition < 0) {
             logger.log(`Waiting fragment cc (${waitingFragCC}) @ ${waitingFrag.frag.start} cancelled because another fragment at ${bufferInfo.end} is needed`);
             this.clearWaitingFragment();
           }
@@ -413,12 +436,12 @@ class AudioStreamController extends BaseStreamController {
   }
 
   onAudioTrackLoaded (data) {
-    let newDetails = data.details,
-      trackId = data.id,
-      track = findTrackById(this.tracks, trackId),
-      curDetails = track.details,
-      duration = newDetails.totalduration,
-      sliding = 0;
+    let newDetails = data.details;
+    let trackId = data.id;
+    let track = findTrackById(this.tracks, trackId);
+    let curDetails = track.details;
+    let duration = newDetails.totalduration;
+    let sliding = 0;
 
     logger.log(`track ${trackId} loaded [${newDetails.startSN},${newDetails.endSN}],duration:${duration}`);
 
@@ -480,21 +503,21 @@ class AudioStreamController extends BaseStreamController {
   }
 
   onFragLoaded (data) {
-    let fragCurrent = this.fragCurrent,
-      fragLoaded = data.frag;
+    let fragCurrent = this.fragCurrent;
+    let fragLoaded = data.frag;
     if (this.state === State.FRAG_LOADING &&
         fragCurrent &&
         fragLoaded.type === 'audio' &&
         fragLoaded.level === fragCurrent.level &&
         fragLoaded.sn === fragCurrent.sn) {
-      let track = findTrackById(this.tracks, this.trackId),
-        details = track.details,
-        duration = details.totalduration,
-        trackId = fragCurrent.level,
-        sn = fragCurrent.sn,
-        cc = fragCurrent.cc,
-        audioCodec = this.config.defaultAudioCodec || track.audioCodec || 'mp4a.40.2',
-        stats = this.stats = data.stats;
+      let track = findTrackById(this.tracks, this.trackId);
+      let details = track.details;
+      let duration = details.totalduration;
+      let trackId = fragCurrent.level;
+      let sn = fragCurrent.sn;
+      let cc = fragCurrent.cc;
+      let audioCodec = this.config.defaultAudioCodec || track.audioCodec || 'mp4a.40.2';
+      let stats = this.stats = data.stats;
       if (sn === 'initSegment') {
         this.state = State.IDLE;
 
@@ -539,7 +562,8 @@ class AudioStreamController extends BaseStreamController {
         fragNew.sn === fragCurrent.sn &&
         fragNew.level === fragCurrent.level &&
         this.state === State.PARSING) {
-      let tracks = data.tracks, track;
+      let tracks = data.tracks;
+      let track;
 
       // delete any video track found on audio demuxer
       if (tracks.video) {
@@ -580,9 +604,9 @@ class AudioStreamController extends BaseStreamController {
         fragNew.sn === fragCurrent.sn &&
         fragNew.level === fragCurrent.level &&
         this.state === State.PARSING) {
-      let trackId = this.trackId,
-        track = findTrackById(this.tracks, trackId),
-        hls = this.hls;
+      let trackId = this.trackId;
+      let track = findTrackById(this.tracks, trackId);
+      let hls = this.hls;
 
       if (!Number.isFinite(data.endPTS)) {
         data.endPTS = data.startPTS + fragCurrent.duration;
@@ -695,7 +719,9 @@ class AudioStreamController extends BaseStreamController {
   _checkAppendedParsed () {
     // trigger handler right now
     if (this.state === State.PARSED && (!this.appended || !this.pendingBuffering)) {
-      let frag = this.fragCurrent, stats = this.stats, hls = this.hls;
+      let frag = this.fragCurrent;
+      let stats = this.stats;
+      let hls = this.hls;
       if (frag) {
         this.fragPrevious = frag;
         stats.tbuffered = performance.now();
@@ -769,10 +795,10 @@ class AudioStreamController extends BaseStreamController {
     case ErrorDetails.BUFFER_FULL_ERROR:
       // if in appending state
       if (data.parent === 'audio' && (this.state === State.PARSING || this.state === State.PARSED)) {
-        const media = this.mediaBuffer,
-          currentTime = this.media.currentTime,
-          mediaBuffered = media && BufferHelper.isBuffered(media, currentTime) && BufferHelper.isBuffered(media, currentTime + 0.5);
-          // reduce max buf len if current position is buffered
+        const media = this.mediaBuffer;
+        const currentTime = this.media.currentTime;
+        const mediaBuffered = media && BufferHelper.isBuffered(media, currentTime) && BufferHelper.isBuffered(media, currentTime + 0.5);
+        // reduce max buf len if current position is buffered
         if (mediaBuffered) {
           const config = this.config;
           if (config.maxMaxBufferLength >= config.maxBufferLength) {
