@@ -206,6 +206,7 @@ class AudioStreamController extends BaseStreamController {
           if (this.videoTrackCC !== null && frag.cc !== this.videoTrackCC) {
             // Ensure we find a fragment which matches the continuity of the video track
             frag = findFragWithCC(fragments, this.videoTrackCC);
+            logger.debug(`Selecting audio fragment by video CC ${this.videoTrackCC}.`);
           }
 
           if (trackDetails.live && frag && frag.loadIdx && frag.loadIdx === this.fragLoadIdx) {
@@ -245,7 +246,7 @@ class AudioStreamController extends BaseStreamController {
             if (!this.loadedmetadata && this.videoTrackCC !== null && foundFrag.cc !== this.videoTrackCC) {
               // Ensure we find a fragment which matches the continuity of the video track
               foundFrag = findFragWithCC(fragments, this.videoTrackCC);
-              logger.debug(`Selected audio fragment by video CC ${this.videoTrackCC} for loading.`);
+              logger.debug(`Selecting audio fragment by video CC ${this.videoTrackCC}.`);
             }
           }
 
