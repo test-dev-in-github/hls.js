@@ -626,7 +626,19 @@ class AudioStreamController extends BaseStreamController {
         if (media && media.readyState) {
           let currentTime = media.currentTime;
           logger.log('switching audio track : currentTime:' + currentTime);
-          if (currentTime >= data.startPTS) {
+
+          // Without this the player can stall on audio switch if the
+          // initPTS of the audio segment has been adjusted and is no longer
+          // at current time. Ideally the fragments start times should be
+          // adjusted prior to downloading them to ensure the correct segment is
+          // picked for download, but this has less impact for now.
+          const initPTSAlignmentTolerance = 0.1;
+
+          if (currentTime >= data.startPTS - initPTSAlignmentTolerance) {
+            if (currentTime < data.startPTS) {
+              logger.log('switching audio track : with initPTS alignment tolerance');
+            }
+
             logger.log('switching audio track : flushing all audio');
             this.state = State.BUFFER_FLUSHING;
             hls.trigger(Event.BUFFER_FLUSHING, { startOffset: 0, endOffset: Number.POSITIVE_INFINITY, type: 'audio' });
