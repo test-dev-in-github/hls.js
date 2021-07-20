@@ -280,14 +280,6 @@ jobs:
         env:
           CI: true
 
-      - name: publish to npm
-        run: |
-          ./scripts/publish-npm.sh
-        env:
-          CI: true
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          TAG: ${{ needs.config.outputs.tag }}
-
   test_functional_required:
     needs: [config, test_unit]
     if: needs.config.outputs.canUseSauce == 'true'
