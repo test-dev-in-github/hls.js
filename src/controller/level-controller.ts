@@ -32,6 +32,7 @@ export default class LevelController extends BasePlaylistController {
   private _startLevel?: number;
   private currentLevelIndex: number = -1;
   private manualLevelIndex: number = -1;
+  private cleanPreviousListener!: Function;
 
   public onParsedComplete!: Function;
 
@@ -336,6 +337,7 @@ export default class LevelController extends BasePlaylistController {
     let levelError = false;
     let levelSwitch = true;
     let levelIndex;
+    let nextLevelByAudioFail: number | undefined;
 
     // try to recover not fatal errors
     switch (data.details) {
@@ -353,6 +355,56 @@ export default class LevelController extends BasePlaylistController {
             }
           } else {
             levelIndex = data.frag.level;
+          }
+        }
+        if (data.frag?.type === PlaylistLevelType.AUDIO) {
+          const audioTrack = this.hls.audioTrack;
+          if (audioTrack !== -1) {
+            const audioTracks = this.hls.audioTracks;
+            const audioLevel = audioTracks[audioTrack];
+
+            // Find the next level with a different audio group ID.
+            const levels = this._levels
+              // get level indexes
+              .map((level, index) => ({ level, index }))
+              // filter out all levels with the current audioGroupId
+              .filter(
+                ({ level: { audioGroupIds } }) =>
+                  (audioGroupIds as string[]).indexOf(
+                    audioLevel.groupId as string
+                  ) === -1
+              )
+              .map((x) => ({
+                difference: x.index - this.hls.nextAutoLevel,
+                index: x.index,
+              }));
+
+            let highestNegativeDifference;
+            let highestPositiveDifference;
+            for (const level of levels) {
+              if (
+                level.difference < 0 &&
+                (!highestNegativeDifference ||
+                  highestNegativeDifference.difference < level.difference)
+              ) {
+                highestNegativeDifference = level;
+              }
+              if (
+                level.difference > 0 &&
+                (!highestPositiveDifference ||
+                  highestPositiveDifference.difference < level.difference)
+              ) {
+                highestPositiveDifference = level;
+              }
+            }
+
+            const nextIndex =
+              highestNegativeDifference?.index ??
+              highestPositiveDifference?.index;
+
+            if (nextIndex !== undefined) {
+              nextLevelByAudioFail = nextIndex;
+            }
           }
         }
         break;
@@ -376,6 +428,8 @@ export default class LevelController extends BasePlaylistController {
 
     if (levelIndex !== undefined) {
       this.recoverLevel(data, levelIndex, levelError, levelSwitch);
+    } else if (nextLevelByAudioFail !== undefined) {
+      this.recoverAudioFailOver(data, nextLevelByAudioFail);
     }
   }
 
@@ -422,6 +476,74 @@ export default class LevelController extends BasePlaylistController {
           this.warn(`${errorDetails}: switch to ${nextLevel}`);
           errorEvent.levelRetry = true;
           this.hls.nextAutoLevel = nextLevel;
+        }
+      }
+    }
+  }
+
+  /**
+   * Switch to a redundant stream if any available.
+   * If redundant stream is not available, emergency switch down if ABR mode is enabled.
+   */
+  private recoverAudioFailOver(
+    errorEvent: ErrorData,
+    nextLevelByAudioFail: number
+  ): void {
+    const { details: errorDetails } = errorEvent;
+    const level = this._levels[nextLevelByAudioFail];
+
+    level.loadError++;
+
+    if (this.manualLevelIndex === -1) {
+      // Search for available level in auto level selection mode, cycling from highest to lowest bitrate
+      if (this.currentLevelIndex !== nextLevelByAudioFail) {
+        this.warn(`${errorDetails}: switch to ${nextLevelByAudioFail}`);
+        this.hls.nextAutoLevel = nextLevelByAudioFail;
+
+        const { frag } = errorEvent;
+        if (
+          frag &&
+          frag.type === PlaylistLevelType.AUDIO &&
+          typeof frag.sn === 'number'
+        ) {
+          const waitUntil = frag.sn + 2;
+          this.warn(
+            `auto level will be restricted until fragment ${waitUntil}.`
+          );
+
+          const handleSeeking = (() => {
+            this.log('auto level restriction cancelled due to seeking.');
+            this.cleanPreviousListener();
+          }).bind(this);
+          const handleFragChanged = ((event, data) => {
+            if (data.frag.sn >= waitUntil) {
+              this.log('auto level restriction lifted.');
+              this.cleanPreviousListener();
+            }
+          }).bind(this);
+          const handleFragLoaded = (event, data) => {
+            this.log(
+              `restrict auto level to ${nextLevelByAudioFail} until we play through fragment ${frag.sn}. Currently on ${frag.type}`
+            );
+            // this.hls.nextAutoLevel = this.currentLevelIndex = nextLevel;
+            this.hls.nextAutoLevel = nextLevelByAudioFail;
+          };
+
+          if (this.hls.media) {
+            this.hls.media.addEventListener('seeking', handleSeeking);
+            this.hls.on(Events.FRAG_CHANGED, handleFragChanged);
+            this.hls.on(Events.FRAG_LOADED, handleFragLoaded);
+          }
+          if (this.cleanPreviousListener) {
+            this.cleanPreviousListener();
+          }
+          this.cleanPreviousListener = (() => {
+            if (this.hls.media) {
+              this.hls.media.removeEventListener('seeking', handleSeeking);
+              this.hls.off(Events.FRAG_CHANGED, handleFragChanged);
+              this.hls.off(Events.FRAG_LOADED, handleFragLoaded);
+            }
+          }).bind(this);
         }
       }
     }
