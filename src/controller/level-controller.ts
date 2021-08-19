@@ -337,7 +337,6 @@ export default class LevelController extends BasePlaylistController {
     let levelError = false;
     let levelSwitch = true;
     let levelIndex;
-    let nextLevelByAudioFail: number | undefined;
 
     // try to recover not fatal errors
     switch (data.details) {
@@ -355,56 +354,6 @@ export default class LevelController extends BasePlaylistController {
             }
           } else {
             levelIndex = data.frag.level;
-          }
-        }
-        if (data.frag?.type === PlaylistLevelType.AUDIO) {
-          const audioTrack = this.hls.audioTrack;
-          if (audioTrack !== -1) {
-            const audioTracks = this.hls.audioTracks;
-            const audioLevel = audioTracks[audioTrack];
-
-            // Find the next level with a different audio group ID.
-            const levels = this._levels
-              // get level indexes
-              .map((level, index) => ({ level, index }))
-              // filter out all levels with the current audioGroupId
-              .filter(
-                ({ level: { audioGroupIds } }) =>
-                  (audioGroupIds as string[]).indexOf(
-                    audioLevel.groupId as string
-                  ) === -1
-              )
-              .map((x) => ({
-                difference: x.index - this.hls.nextAutoLevel,
-                index: x.index,
-              }));
-
-            let highestNegativeDifference;
-            let highestPositiveDifference;
-            for (const level of levels) {
-              if (
-                level.difference < 0 &&
-                (!highestNegativeDifference ||
-                  highestNegativeDifference.difference < level.difference)
-              ) {
-                highestNegativeDifference = level;
-              }
-              if (
-                level.difference > 0 &&
-                (!highestPositiveDifference ||
-                  highestPositiveDifference.difference < level.difference)
-              ) {
-                highestPositiveDifference = level;
-              }
-            }
-
-            const nextIndex =
-              highestNegativeDifference?.index ??
-              highestPositiveDifference?.index;
-
-            if (nextIndex !== undefined) {
-              nextLevelByAudioFail = nextIndex;
-            }
           }
         }
         break;
@@ -428,8 +377,8 @@ export default class LevelController extends BasePlaylistController {
 
     if (levelIndex !== undefined) {
       this.recoverLevel(data, levelIndex, levelError, levelSwitch);
-    } else if (nextLevelByAudioFail !== undefined) {
-      this.recoverAudioFailOver(data, nextLevelByAudioFail);
+    } else {
+      this.recoverAudioFailOver(event, data);
     }
   }
 
@@ -481,11 +430,79 @@ export default class LevelController extends BasePlaylistController {
     }
   }
 
-  /**
-   * Switch to a redundant stream if any available.
-   * If redundant stream is not available, emergency switch down if ABR mode is enabled.
-   */
-  private recoverAudioFailOver(
+  private recoverAudioFailOver(event: Events.ERROR, data: ErrorData) {
+    let nextLevelByAudioFail: number | undefined;
+    const details = data.details;
+    if (
+      details === ErrorDetails.FRAG_LOAD_ERROR ||
+      details === ErrorDetails.FRAG_LOAD_TIMEOUT ||
+      details === ErrorDetails.KEY_LOAD_ERROR ||
+      details === ErrorDetails.KEY_LOAD_TIMEOUT
+    ) {
+      if (data.frag?.type === PlaylistLevelType.AUDIO) {
+        nextLevelByAudioFail = this.getNextLevelWithAudioFailOver();
+        if (nextLevelByAudioFail !== undefined) {
+          this.switchLevelInAudioFailOver(data, nextLevelByAudioFail);
+        }
+      }
+    }
+  }
+
+  private getNextLevelWithAudioFailOver(): number | undefined {
+    let nextLevelByAudioFail: number | undefined;
+    const audioTrack = this.hls.audioTrack;
+
+    if (audioTrack !== -1) {
+      const audioTracks = this.hls.audioTracks;
+      const audioLevel = audioTracks[audioTrack];
+
+      // Find the next level with a different audio group ID.
+      const levels = this._levels
+        // get level indexes
+        .map((level, index) => ({ level, index }))
+        // filter out all levels with the current audioGroupId
+        .filter(
+          ({ level: { audioGroupIds } }) =>
+            (audioGroupIds as string[]).indexOf(
+              audioLevel.groupId as string
+            ) === -1
+        )
+        .map((x) => ({
+          difference: x.index - this.hls.nextAutoLevel,
+          index: x.index,
+        }));
+
+      let highestNegativeDifference;
+      let highestPositiveDifference;
+      for (const level of levels) {
+        if (
+          level.difference < 0 &&
+          (!highestNegativeDifference ||
+            highestNegativeDifference.difference < level.difference)
+        ) {
+          highestNegativeDifference = level;
+        }
+        if (
+          level.difference > 0 &&
+          (!highestPositiveDifference ||
+            highestPositiveDifference.difference < level.difference)
+        ) {
+          highestPositiveDifference = level;
+        }
+      }
+
+      const nextIndex =
+        highestNegativeDifference?.index ?? highestPositiveDifference?.index;
+
+      if (nextIndex !== undefined) {
+        nextLevelByAudioFail = nextIndex;
+      }
+    }
+
+    return nextLevelByAudioFail;
+  }
+
+  private switchLevelInAudioFailOver(
     errorEvent: ErrorData,
     nextLevelByAudioFail: number
   ): void {
