@@ -4,6 +4,7 @@ import {
   getStartDTS,
   offsetStartDTS,
   parseInitSegment,
+  parseVideoSegmentTextTrackSamples,
 } from '../utils/mp4-tools';
 import { ElementaryStreamTypes } from '../loader/fragment';
 import { logger } from '../utils/logger';
@@ -177,6 +178,19 @@ class PassThroughRemuxer implements Remuxer {
     const hasAudio = !!initData.audio;
     const hasVideo = !!initData.video;
 
+    if (hasVideo) {
+      const trackId = initData.video?.id;
+      const timescale = initData.video?.timescale;
+      if (trackId && timescale) {
+        textTrack.samples = parseVideoSegmentTextTrackSamples(data, trackId);
+        textTrack.timescale = timescale;
+      }
+    }
+
+    if (textTrack.samples.length) {
+      this.remuxText(textTrack);
+    }
+
     let type: any = '';
     if (hasAudio) {
       type += 'audio';
@@ -206,6 +220,27 @@ class PassThroughRemuxer implements Remuxer {
     result.initSegment = initSegment;
 
     return result;
+  }
+
+  remuxText(track) {
+    track.samples.sort(function (a, b) {
+      return a.pts - b.pts;
+    });
+
+    const length = track.samples.length;
+    let sample;
+    const inputTimeScale = track.timescale;
+    const initPTS = this.initPTS;
+    // consume samples
+    if (length && initPTS) {
+      for (let index = 0; index < length; index++) {
+        sample = track.samples[index];
+        // setting text pts, dts to relative time
+        // using this._initPTS and this._initDTS to calculate relative time
+        // sample.pts = ((sample.pts - initPTS) / inputTimeScale);
+        sample.pts = sample.pts / inputTimeScale;
+      }
+    }
   }
 }
 
