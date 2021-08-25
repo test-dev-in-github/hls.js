@@ -5,6 +5,7 @@ import {
   offsetStartDTS,
   parseInitSegment,
   parseVideoSegmentTextTrackSamples,
+  parseId3TrackSamples,
 } from '../utils/mp4-tools';
 import { ElementaryStreamTypes } from '../loader/fragment';
 import { logger } from '../utils/logger';
@@ -212,6 +213,28 @@ class PassThroughRemuxer implements Remuxer {
       nb: 1,
       dropped: 0,
     };
+
+    if (this.initPTS != null) {
+      const samples = parseId3TrackSamples(data);
+
+      for (let index = 0; index < samples.length; index++) {
+        const sample = samples[index];
+        if (sample == null) {
+          continue;
+        }
+        if (sample.timescale == null) {
+          continue;
+        }
+
+        sample.pts = sample.pts / sample.timescale - this.initPTS;
+        sample.dts = sample.dts / sample.timescale - this.initPTS;
+        sample.duration =
+          sample.duration != null
+            ? sample.duration / sample.timescale
+            : undefined;
+        id3Track.samples.push(sample);
+      }
+    }
 
     result.audio = track.type === 'audio' ? track : undefined;
     result.video = track.type !== 'audio' ? track : undefined;
