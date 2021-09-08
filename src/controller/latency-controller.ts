@@ -20,7 +20,7 @@ export default class LatencyController implements ComponentAPI {
   private levelDetails: LevelDetails | null = null;
   private currentTime: number = 0;
   private stallCount: number = 0;
-  private _lastStallTime: number = 0;
+  private _lastStallTime: number = Date.now();
   private _latency: number | null = null;
   private timeupdateHandler = () => this.timeupdate();
 
@@ -180,7 +180,7 @@ export default class LatencyController implements ComponentAPI {
     this.levelDetails = null;
     this._latency = null;
     this.stallCount = 0;
-    this._lastStallTime = 0;
+    this._lastStallTime = Date.now();
   }
 
   private onLevelUpdated(
