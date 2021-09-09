@@ -252,6 +252,9 @@ export function mergeDetails(
     for (let i = 0; i < newFragments.length; i++) {
       newFragments[i].cc += ccOffset;
     }
+    if (newDetails.fragmentHint) {
+      newDetails.fragmentHint.cc += ccOffset;
+    }
   }
   if (newDetails.skippedSegments) {
     newDetails.startCC = newDetails.fragments[0].cc;
