@@ -12,9 +12,24 @@ type Mp4BoxData = {
 
 const UINT32_MAX = Math.pow(2, 32) - 1;
 const push = [].push;
+const ID3_SCHEME_ID_URIS = [
+  'https://aomedia.org/emsg/ID3',
+  'https://developer.apple.com/streaming/emsg-id3',
+];
 
 export function bin2str(data: Uint8Array): string {
   return String.fromCharCode.apply(null, data);
+}
+
+export function readNullTerminatedString(buffer, offset): string {
+  let i = offset;
+
+  while (String.fromCharCode(buffer[i]) !== '\0' && i < buffer.byteLength) {
+    i++;
+  }
+
+  const val = new Uint8Array(buffer.subarray(offset, i));
+  return bin2str(val);
 }
 
 export function readUint16(
@@ -113,6 +128,60 @@ export function findBox(
 
   // we've finished searching all of data
   return results;
+}
+
+export function parseId3TrackSamples(data) {
+  const emsgs = findBox(data, ['emsg']);
+  return emsgs.map((emsg) => {
+    try {
+      const data = emsg.data.subarray(emsg.start, emsg.end);
+      let offset = 0;
+
+      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+      const version = view.getUint8(offset);
+      if (version !== 1) {
+        return undefined;
+      }
+
+      // skip over 3 bytes of flags
+      offset += 4;
+      const timescale = view.getUint32(offset);
+      offset += 4;
+      const presentationTime = Number(view.getBigUint64(offset));
+      offset += 8;
+      const eventDuration = view.getUint32(offset);
+      offset += 4;
+      const id = view.getUint32(offset);
+      offset += 4;
+      const schemeIdUri = readNullTerminatedString(data, offset);
+      if (!ID3_SCHEME_ID_URIS.includes(schemeIdUri)) {
+        return undefined;
+      }
+
+      // skip over the null byte
+      offset += schemeIdUri.length + 1;
+      const value = readNullTerminatedString(data, offset);
+      // skip over the null byte
+      offset += value.length + 1;
+      // the rest is id3 payload
+      const messageData = new Uint8Array(
+        data.subarray(offset, data.byteLength)
+      );
+
+      return {
+        timescale,
+        pts: presentationTime,
+        dts: presentationTime,
+        duration: eventDuration !== 0xffffffff ? eventDuration : undefined,
+        id,
+        schemeIdUri,
+        value,
+        data: messageData,
+      };
+    } catch (e) {
+      return undefined;
+    }
+  });
 }
 
 type SidxInfo = {
