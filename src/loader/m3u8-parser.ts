@@ -365,8 +365,8 @@ export default class M3U8Parser {
             const unsupportedKnownKeyformatsInManifest = [
               'com.apple.streamingkeydelivery',
               'com.microsoft.playready',
-              'urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed', // widevine (v2)
-              'com.widevine', // earlier widevine (v1)
+              // 'urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed', // widevine (v2)
+              // 'com.widevine', // earlier widevine (v1)
             ];
 
             if (
