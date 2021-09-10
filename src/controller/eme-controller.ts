@@ -484,7 +484,7 @@ class EMEController implements ComponentAPI {
         licenseXhrSetup.call(this.hls, xhr, url);
         licenseXhrSetup = undefined;
       } catch (e) {
-        logger.error(e);
+        logger.warn(e);
       }
     }
     try {
