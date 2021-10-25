@@ -365,10 +365,12 @@ export function mapFragmentIntersection(
   }
 
   const lastNewFrag = newFrags[end];
-  for (let i = end + 1; i < newFrags.length; i++) {
-    const newFrag = newFrags[i];
-    if (newFrag.initSegment?.relurl == lastNewFrag?.initSegment?.relurl) {
-      newFrag.initSegment = lastNewFrag.initSegment;
+  if (lastNewFrag) {
+    for (let i = end + 1; i < newFrags.length; i++) {
+      const newFrag = newFrags[i];
+      if (newFrag.initSegment?.relurl == lastNewFrag?.initSegment?.relurl) {
+        newFrag.initSegment = lastNewFrag.initSegment;
+      }
     }
   }
 }
