@@ -382,6 +382,16 @@ export function mapFragmentIntersection(
       }
     }
   }
+
+  const lastNewFrag = newFrags[end];
+  if (lastNewFrag) {
+    for (let i = end + 1; i < newFrags.length; i++) {
+      const newFrag = newFrags[i];
+      if (newFrag.initSegment?.relurl == lastNewFrag?.initSegment?.relurl) {
+        newFrag.initSegment = lastNewFrag.initSegment;
+      }
+    }
+  }
 }
 
 export function adjustSliding(
