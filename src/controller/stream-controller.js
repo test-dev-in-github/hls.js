@@ -41,7 +41,8 @@ class StreamController extends BaseStreamController {
       Event.AUDIO_TRACK_SWITCHED,
       Event.BUFFER_CREATED,
       Event.BUFFER_APPENDED,
-      Event.BUFFER_FLUSHED);
+      Event.BUFFER_FLUSHED,
+      Event.VIDEO_PTS_NEEDED);
 
     this.fragmentTracker = fragmentTracker;
     this.config = hls.config;
@@ -52,6 +53,7 @@ class StreamController extends BaseStreamController {
     this.altAudio = false;
     this.audioOnly = false;
     this.bitrateTest = false;
+    this._waitingCC = null;
   }
 
   startLoad (startPosition) {
@@ -264,7 +266,8 @@ class StreamController extends BaseStreamController {
       }
     }
     if (!frag) {
-      frag = this._findFragment(start, fragPrevious, fragLen, fragments, bufferEnd, end, levelDetails);
+      frag = this._findFragment(start, fragPrevious, fragLen, fragments, bufferEnd, end, levelDetails, this._waitingCC);
+      this._waitingCC = null;
     }
 
     if (frag) {
@@ -361,18 +364,30 @@ class StreamController extends BaseStreamController {
     return frag;
   }
 
-  _findFragment (start, fragPreviousLoad, fragmentIndexRange, fragments, bufferEnd, end, levelDetails) {
+  _findFragment (start, fragPreviousLoad, fragmentIndexRange, fragments, bufferEnd, end, levelDetails, waitingCC) {
     const config = this.hls.config;
     let fragNextLoad;
 
-    if (bufferEnd < end) {
-      const lookupTolerance = (bufferEnd > end - config.maxFragLookUpTolerance) ? 0 : config.maxFragLookUpTolerance;
-      // Remove the tolerance if it would put the bufferEnd past the actual end of stream
-      // Uses buffer and sequence number to calculate switch segment (required if using EXT-X-DISCONTINUITY-SEQUENCE)
-      fragNextLoad = findFragmentByPTS(fragPreviousLoad, fragments, bufferEnd, lookupTolerance);
-    } else {
-      // reach end of playlist
-      fragNextLoad = fragments[fragmentIndexRange - 1];
+    if (waitingCC != null && fragPreviousLoad.cc !== waitingCC) {
+      // eslint-disable-next-line no-restricted-properties
+      const fragmentsWithMatchingCC = fragments.filter((fragment) => fragment.cc === waitingCC);
+
+      // Use the last fragment with matching CC as this issue generally occurs at the end of discontinuities
+      // with slightly offset audio / video manifests.
+      fragNextLoad = fragmentsWithMatchingCC[fragmentsWithMatchingCC.length - 1];
+      logger.info(`Loading video segment ${fragNextLoad.sn} (cc: ${fragNextLoad.cc}) to get initPTS for audio-stream-controller.`);
+    }
+
+    if (!fragNextLoad) {
+      if (bufferEnd < end) {
+        const lookupTolerance = (bufferEnd > end - config.maxFragLookUpTolerance) ? 0 : config.maxFragLookUpTolerance;
+        // Remove the tolerance if it would put the bufferEnd past the actual end of stream
+        // Uses buffer and sequence number to calculate switch segment (required if using EXT-X-DISCONTINUITY-SEQUENCE)
+        fragNextLoad = findFragmentByPTS(fragPreviousLoad, fragments, bufferEnd, lookupTolerance);
+      } else {
+        // reach end of playlist
+        fragNextLoad = fragments[fragmentIndexRange - 1];
+      }
     }
 
     if (fragNextLoad) {
@@ -1397,6 +1412,10 @@ class StreamController extends BaseStreamController {
 
   set liveSyncPosition (value) {
     this._liveSyncPosition = value;
+  }
+
+  onVideoPtsNeeded (data) {
+    this._waitingCC = data.cc;
   }
 }
 export default StreamController;
