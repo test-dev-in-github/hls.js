@@ -46,8 +46,11 @@ class AudioStreamController extends BaseStreamController {
     this.audioCodecSwap = false;
     this._state = State.STOPPED;
     this.initPTS = [];
+    /** A pending audio fragment that loaded but cannot be buffered yet as it's initPTS is unknown. */
     this.waitingFragment = null;
+    /** The current CC of the video track. */
     this.videoTrackCC = null;
+    /** The CC of the video track at the time `this.waitingFragment` was put on hold. */
     this.waitingVideoCC = null;
   }
 
@@ -344,6 +347,8 @@ class AudioStreamController extends BaseStreamController {
           if (bufferInfo.end !== 0 && waitingFragmentAtPosition < 0) {
             logger.log(`Waiting fragment cc (${waitingFragCC}) @ ${waitingFrag.frag.start} cancelled because another fragment at ${bufferInfo.end} is needed`);
             this.clearWaitingFragment();
+          } else if (this.waitingVideoCC != null) {
+            this.hls.trigger(Event.VIDEO_PTS_NEEDED, { cc: waitingFragCC });
           }
         }
       } else {

@@ -112,7 +112,9 @@ const HlsEvents = {
   // fired upon stream controller state transitions - data: { previousState, nextState }
   STREAM_STATE_TRANSITION: 'hlsStreamStateTransition',
   // fired when the live back buffer is reached defined by the liveBackBufferLength config option - data : { bufferEnd: number }
-  LIVE_BACK_BUFFER_REACHED: 'hlsLiveBackBufferReached'
+  LIVE_BACK_BUFFER_REACHED: 'hlsLiveBackBufferReached',
+  // fired when audio stream controller is stuck and requires video PTS to be available for a continuity, this is a temporary fix until v1
+  VIDEO_PTS_NEEDED: 'hlsVideoPtsNeeded'
 };
 
 export default HlsEvents;
