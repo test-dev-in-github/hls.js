@@ -347,7 +347,7 @@ class AudioStreamController extends BaseStreamController {
           if (bufferInfo.end !== 0 && waitingFragmentAtPosition < 0) {
             logger.log(`Waiting fragment cc (${waitingFragCC}) @ ${waitingFrag.frag.start} cancelled because another fragment at ${bufferInfo.end} is needed`);
             this.clearWaitingFragment();
-          } else if (this.waitingVideoCC != null) {
+          } else if (this.waitingVideoCC != null && waitingFragCC < this.waitingVideoCC) {
             this.hls.trigger(Event.VIDEO_PTS_NEEDED, { cc: waitingFragCC });
           }
         }
