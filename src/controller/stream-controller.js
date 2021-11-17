@@ -368,7 +368,7 @@ class StreamController extends BaseStreamController {
     const config = this.hls.config;
     let fragNextLoad;
 
-    if (waitingCC != null && fragPreviousLoad.cc !== waitingCC) {
+    if (waitingCC != null && (fragPreviousLoad == null || fragPreviousLoad.cc !== waitingCC)) {
       // eslint-disable-next-line no-restricted-properties
       const fragmentsWithMatchingCC = fragments.filter((fragment) => fragment.cc === waitingCC);
 
