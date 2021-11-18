@@ -556,6 +556,11 @@ class AudioStreamController extends BaseStreamController {
           this.state = State.WAITING_INIT_PTS;
         }
       }
+    } else if (fragLoaded.type === 'audio') {
+      // Make sure abandoned fragments are removed from the fragment tracker
+      // otherwise they will not be loaded the next time they are requested.
+      logger.log(`Dropping audio fragment ${data.frag.sn} as it is no longer needed`);
+      this.fragmentTracker.removeFragment(data.frag);
     }
     this.fragLoadError = 0;
   }
