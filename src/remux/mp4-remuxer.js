@@ -559,11 +559,9 @@ class MP4Remuxer {
         // Insert missing frames if:
         // 1: We're more than maxAudioFramesDrift frame away
         // 2: Not more than MAX_SILENT_FRAME_DURATION away
-        else if (delta >= maxAudioFramesDrift * inputSampleDuration && delta < MAX_SILENT_FRAME_DURATION_90KHZ) {
-          const missing = Math.floor(delta / inputSampleDuration);
-          // Adjust nextPts so that silent samples are aligned with media pts. This will prevent media samples from
-          // later being shifted if nextPts is based on timeOffset and delta is not a multiple of inputSampleDuration.
-          nextPts = pts - missing * inputSampleDuration;
+        // 3: currentTime (aka nextPtsNorm) is not 0
+        else if (delta >= maxAudioFramesDrift * inputSampleDuration && delta < MAX_SILENT_FRAME_DURATION_90KHZ && nextPts) {
+          const missing = Math.round(delta / inputSampleDuration);
           logger.warn(`Injecting ${missing} audio frames @ ${toMsFromMpegTsClock(nextPts, true) / 1000}s due to ${toMsFromMpegTsClock(delta, true)} ms gap.`);
           for (let j = 0; j < missing; j++) {
             let newStamp = Math.max(nextPts, 0);
