@@ -562,8 +562,8 @@ class AudioStreamController extends BaseStreamController {
     } else if (fragLoaded.type === 'audio') {
       // Make sure abandoned fragments are removed from the fragment tracker
       // otherwise they will not be loaded the next time they are requested.
-      logger.log(`Dropping audio fragment ${data.frag.sn} as it is no longer needed`);
-      this.fragmentTracker.removeFragment(data.frag);
+      logger.log(`Dropping audio fragment ${fragLoaded.sn} as it is no longer needed`);
+      this.fragmentTracker.removeFragment(fragLoaded);
     }
     this.fragLoadError = 0;
   }
@@ -711,6 +711,11 @@ class AudioStreamController extends BaseStreamController {
       this.stats.tparsed = performance.now();
       this.state = State.PARSED;
       this._checkAppendedParsed();
+    } else if (data.id === 'audio') {
+      // Make sure abandoned fragments are removed from the fragment tracker
+      // otherwise they will not be loaded the next time they are requested.
+      logger.log(`Dropping audio fragment ${fragNew.sn} as it is no longer needed`);
+      this.fragmentTracker.removeFragment(fragNew);
     }
   }
 
