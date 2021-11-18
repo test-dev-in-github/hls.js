@@ -32,7 +32,8 @@ class AudioTrackController extends TaskLoop {
       Event.MANIFEST_PARSED,
       Event.AUDIO_TRACK_LOADED,
       Event.AUDIO_TRACK_SWITCHED,
-      Event.LEVEL_LOADED,
+      Event.LEVEL_LOADING,
+      Event.LEVEL_SWITCHING,
       Event.ERROR
     );
 
@@ -145,7 +146,7 @@ class AudioTrackController extends TaskLoop {
   }
 
   /**
-   * When a level gets loaded, if it has redundant audioGroupIds (in the same ordinality as it's redundant URLs)
+   * When a level starts loading, if it has redundant audioGroupIds (in the same ordinality as it's redundant URLs)
    * we are setting our audio-group ID internally to the one set, if it is different from the group ID currently set.
    *
    * If group-ID got update, we re-select the appropriate audio-track with this group-ID matching the currently
@@ -153,7 +154,20 @@ class AudioTrackController extends TaskLoop {
    *
    * @param {*} data
    */
-  onLevelLoaded (data) {
+   onLevelLoading (data) {
+    this._selectAudioGroup(data.level);
+  }
+
+  /**
+   * When a level switching starts, if it has redundant audioGroupIds (in the same ordinality as it's redundant URLs)
+   * we are setting our audio-group ID internally to the one set, if it is different from the group ID currently set.
+   *
+   * If group-ID got update, we re-select the appropriate audio-track with this group-ID matching the currently
+   * selected one (based on NAME property).
+   *
+   * @param {*} data
+   */
+  onLevelSwitching (data) {
     this._selectAudioGroup(data.level);
   }
 
