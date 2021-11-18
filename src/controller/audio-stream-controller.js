@@ -283,7 +283,10 @@ class AudioStreamController extends BaseStreamController {
               frag = trackDetails.initSegments[frag.initSegment].fragment;
             }
             this.fragCurrent = frag;
-            if (audioSwitch || this.fragmentTracker.getState(frag) === FragmentState.NOT_LOADED) {
+            if (audioSwitch || this.fragmentTracker.getState(frag) !== FragmentState.OK) {
+              if (this.fragmentTracker.getState(frag) !== FragmentState.NOT_LOADED) {
+                logger.log(`Re-loading audio fragment ${frag.sn}`);
+              }
               logger.log(`Loading ${frag.sn}, cc: ${frag.cc} of [${trackDetails.startSN} ,${trackDetails.endSN}],track ${trackId}, ${
                 this.loadedmetadata ? 'currentTime' : 'nextLoadPosition'
               }: ${pos}, bufferEnd: ${bufferEnd.toFixed(3)}`);
