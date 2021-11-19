@@ -283,7 +283,11 @@ class AudioStreamController extends BaseStreamController {
               frag = trackDetails.initSegments[frag.initSegment].fragment;
             }
             this.fragCurrent = frag;
-            if (audioSwitch || this.fragmentTracker.getState(frag) === FragmentState.NOT_LOADED) {
+            const fragState = this.fragmentTracker.getState(frag);
+            if (audioSwitch || fragState !== FragmentState.OK) {
+              if (fragState !== FragmentState.NOT_LOADED) {
+                logger.log(`Re-loading audio fragment ${frag.sn}`);
+              }
               logger.log(`Loading ${frag.sn}, cc: ${frag.cc} of [${trackDetails.startSN} ,${trackDetails.endSN}],track ${trackId}, ${
                 this.loadedmetadata ? 'currentTime' : 'nextLoadPosition'
               }: ${pos}, bufferEnd: ${bufferEnd.toFixed(3)}`);
@@ -556,6 +560,11 @@ class AudioStreamController extends BaseStreamController {
           this.state = State.WAITING_INIT_PTS;
         }
       }
+    } else if (fragLoaded.type === 'audio') {
+      // Make sure abandoned fragments are removed from the fragment tracker
+      // otherwise they will not be loaded the next time they are requested.
+      logger.log(`Dropping audio fragment ${fragLoaded.sn} as it is no longer needed`);
+      this.fragmentTracker.removeFragment(fragLoaded);
     }
     this.fragLoadError = 0;
   }
@@ -703,6 +712,11 @@ class AudioStreamController extends BaseStreamController {
       this.stats.tparsed = performance.now();
       this.state = State.PARSED;
       this._checkAppendedParsed();
+    } else if (data.id === 'audio') {
+      // Make sure abandoned fragments are removed from the fragment tracker
+      // otherwise they will not be loaded the next time they are requested.
+      logger.log(`Dropping audio fragment ${fragNew.sn} as it is no longer needed`);
+      this.fragmentTracker.removeFragment(fragNew);
     }
   }
 
