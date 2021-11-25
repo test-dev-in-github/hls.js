@@ -269,7 +269,7 @@ class AudioTrackController extends TaskLoop {
     }
 
     const audioGroupId = levelInfo.audioGroupIds[levelInfo.urlId];
-    if (this.audioGroupId !== audioGroupId) {
+    if (this.audioGroupId !== audioGroupId && this.tracks.length > 0) {
       this.audioGroupId = audioGroupId;
       this._selectInitialAudioTrack();
     }
