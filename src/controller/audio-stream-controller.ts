@@ -220,11 +220,8 @@ class AudioStreamController
               );
               this.clearWaitingFragment();
             } else {
-              if (this.waitingVideoCC === -1 && this.videoTrackCC !== - 1) {
-                this.waitingVideoCC = this.videoTrackCC;
-              }
               if (this.waitingVideoCC !== -1 && frag.cc < this.waitingVideoCC) {
-                this.hls.trigger(Events.VIDEO_PTS_NEEDED, { cc:  frag.cc });
+                this.hls.trigger(Events.VIDEO_PTS_NEEDED, { cc: frag.cc });
               }
             }
           }
