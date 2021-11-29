@@ -779,17 +779,7 @@ export default class MP4Remuxer implements Remuxer {
           duration < MAX_SILENT_FRAME_DURATION &&
           alignedWithVideo
         ) {
-          let missing = Math.round(delta / inputSampleDuration);
-          // Adjust nextPts so that silent samples are aligned with media pts. This will prevent media samples from
-          // later being shifted if nextPts is based on timeOffset and delta is not a multiple of inputSampleDuration.
-          nextPts = pts - missing * inputSampleDuration;
-          if (nextPts < 0) {
-            missing--;
-            nextPts += inputSampleDuration;
-          }
-          if (i === 0) {
-            this.nextAudioPts = nextAudioPts = nextPts;
-          }
+          const missing = Math.round(delta / inputSampleDuration);
           logger.warn(
             `[mp4-remuxer]: Injecting ${missing} audio frame @ ${(
               nextPts / inputTimeScale
