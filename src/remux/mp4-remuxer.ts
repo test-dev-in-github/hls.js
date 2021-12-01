@@ -46,7 +46,7 @@ export default class MP4Remuxer implements Remuxer {
   private nextAudioPts: number | null = null;
   private isAudioContiguous: boolean = false;
   private isVideoContiguous: boolean = false;
-  private checkIFrameOnDiscontinue: boolean = false;
+  private isDiscontinuity: boolean = false;
 
   constructor(
     observer: HlsEventEmitter,
@@ -78,7 +78,7 @@ export default class MP4Remuxer implements Remuxer {
   resetTimeStamp(defaultTimeStamp) {
     logger.log('[mp4-remuxer]: initPTS & initDTS reset');
     this._initPTS = this._initDTS = defaultTimeStamp;
-    this.checkIFrameOnDiscontinue = true;
+    this.isDiscontinuity = true;
   }
 
   resetNextTimestamp() {
@@ -160,7 +160,7 @@ export default class MP4Remuxer implements Remuxer {
         if (
           this.config.forceKeyFrameOnDiscontinuity &&
           (!isVideoContiguous ||
-            (this.checkIFrameOnDiscontinue && firstKeyFrameIndex > 0))
+            (this.isDiscontinuity && firstKeyFrameIndex > 0))
         ) {
           independent = true;
           if (firstKeyFrameIndex > 0) {
@@ -169,7 +169,7 @@ export default class MP4Remuxer implements Remuxer {
             );
             const startPTS = this.getVideoStartPts(videoTrack.samples);
             videoTrack.samples = videoTrack.samples.slice(firstKeyFrameIndex);
-            if (this.checkIFrameOnDiscontinue) {
+            if (this.isDiscontinuity) {
               firstKeyFrameIndex = 0;
             }
             videoTrack.dropped += firstKeyFrameIndex;
@@ -640,7 +640,7 @@ export default class MP4Remuxer implements Remuxer {
     // next AVC sample DTS should be equal to last sample DTS + last sample duration (in PES timescale)
     this.nextAvcDts = nextAvcDts = lastDTS + mp4SampleDuration;
     this.isVideoContiguous = true;
-    this.checkIFrameOnDiscontinue = false;
+    this.isDiscontinuity = false;
     const moof = MP4.moof(
       track.sequenceNumber++,
       firstDTS,
