@@ -66,7 +66,13 @@ const Cues: CuesInterface = {
         if (!track || !track.cues || !track.cues.getCueById(id)) {
           cue = new Cue(startTime, endTime, cueText);
           cue.id = id;
-          cue.line = r + 1;
+          // VTTCue.line get's flakey when using controls, so let's now include line 13&14
+          // also, drop line 1 since it's to close to the top
+          if (navigator.userAgent.match(/Firefox\//)) {
+            cue.line = r + 1;
+          } else {
+            cue.line = r > 7 ? r - 2 : r + 1;
+          }
           cue.align = 'left';
           // Clamp the position between 10 and 80 percent (CEA-608 PAC indent code)
           // https://dvcs.w3.org/hg/text-tracks/raw-file/default/608toVTT/608toVTT.html#positioning-in-cea-608
