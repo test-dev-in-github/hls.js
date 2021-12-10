@@ -77,16 +77,7 @@ const Cues: CuesInterface = {
       }
     }
     if (track && result.length) {
-      // Sort bottom cues in reverse order so that they render in line order when overlapping in Chrome
-      result.sort((cueA, cueB) => {
-        if (cueA.line === 'auto' || cueB.line === 'auto') {
-          return 0;
-        }
-        if (cueA.line > 8 && cueB.line > 8) {
-          return cueB.line - cueA.line;
-        }
-        return cueA.line - cueB.line;
-      });
+      // Remove sort for doris. The cue's line is ignored in doris player.
       result.forEach((cue) => addCueToTrack(track, cue));
     }
     return result;
