@@ -1,5 +1,6 @@
 {
   "name": "hls.js",
+  "version": "1.1.2-doris.4",
   "license": "Apache-2.0",
   "description": "JavaScript HLS client using MediaSourceExtension",
   "homepage": "https://github.com/video-dev/hls.js",
@@ -110,7 +111,7 @@
     "url-toolkit": "2.2.3",
     "webpack": "4.46.0",
     "webpack-cli": "4.9.1",
-    "webpack-dev-server": "4.6.0",
+    "webpack-dev-server": "^3.11.2",
     "webpack-merge": "5.8.0",
     "webworkify-webpack": "2.1.5"
   }
