@@ -72,6 +72,10 @@ export interface BufferFlushedData {
   type: SourceBufferName;
 }
 
+export interface AbortSegmentLoading {
+  newUrlId: number;
+}
+
 export interface VideoPTSNeededCC {
   cc: number;
 }

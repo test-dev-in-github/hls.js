@@ -34,6 +34,7 @@ import type {
   LevelsUpdatedData,
   ManifestParsedData,
   MediaAttachedData,
+  AbortSegmentLoading,
   VideoPTSNeededCC,
 } from '../types/events';
 
@@ -83,6 +84,7 @@ export default class StreamController
     hls.on(Events.BUFFER_FLUSHED, this.onBufferFlushed, this);
     hls.on(Events.LEVELS_UPDATED, this.onLevelsUpdated, this);
     hls.on(Events.FRAG_BUFFERED, this.onFragBuffered, this);
+    hls.on(Events.ABORT_SEGMENT_LOADING, this.onAbortSegmentLoading, this);
     hls.on(Events.VIDEO_PTS_NEEDED, this.onVideoPtsNeeded, this);
   }
 
@@ -105,6 +107,7 @@ export default class StreamController
     hls.off(Events.BUFFER_FLUSHED, this.onBufferFlushed, this);
     hls.off(Events.LEVELS_UPDATED, this.onLevelsUpdated, this);
     hls.off(Events.FRAG_BUFFERED, this.onFragBuffered, this);
+    hls.off(Events.ABORT_SEGMENT_LOADING, this.onAbortSegmentLoading, this);
     hls.on(Events.VIDEO_PTS_NEEDED, this.onVideoPtsNeeded, this);
   }
 
@@ -1357,7 +1360,18 @@ export default class StreamController
     return this._forceStartLoad;
   }
 
-  onVideoPtsNeeded (event: Events.VIDEO_PTS_NEEDED, data: VideoPTSNeededCC) {
+  onAbortSegmentLoading(
+    event: Events.ABORT_SEGMENT_LOADING,
+    data: AbortSegmentLoading
+  ) {
+    this.warn('redundant failover. abort current segment download');
+    this.abortCurrentFrag();
+    if (this.state === State.FRAG_LOADING) {
+      this.state = State.IDLE;
+    }
+  }
+
+  onVideoPtsNeeded(event: Events.VIDEO_PTS_NEEDED, data: VideoPTSNeededCC) {
     this.reAlignCC = data.cc;
   }
 }
