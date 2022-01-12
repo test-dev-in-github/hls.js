@@ -428,6 +428,7 @@ export default class LevelController extends BasePlaylistController {
           this.warn(`${errorDetails}: switch to ${nextLevel}`);
           errorEvent.levelRetry = true;
           this.hls.nextAutoLevel = nextLevel;
+          this.nextLoadLevel = nextLevel;
         }
       }
     }
