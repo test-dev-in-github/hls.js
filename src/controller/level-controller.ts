@@ -437,6 +437,7 @@ export default class LevelController extends BasePlaylistController {
       this._levels.forEach((level) => {
         level.urlId = newUrlId;
       });
+      this.hls.trigger(Events.ABORT_SEGMENT_LOADING, { newUrlId });
       this.level = levelIndex;
     }
   }
