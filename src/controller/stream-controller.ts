@@ -105,7 +105,7 @@ export default class StreamController
     hls.off(Events.BUFFER_FLUSHED, this.onBufferFlushed, this);
     hls.off(Events.LEVELS_UPDATED, this.onLevelsUpdated, this);
     hls.off(Events.FRAG_BUFFERED, this.onFragBuffered, this);
-    hls.on(Events.VIDEO_PTS_NEEDED, this.onVideoPtsNeeded, this);
+    hls.off(Events.VIDEO_PTS_NEEDED, this.onVideoPtsNeeded, this);
   }
 
   protected onHandlerDestroying() {
@@ -1357,7 +1357,7 @@ export default class StreamController
     return this._forceStartLoad;
   }
 
-  onVideoPtsNeeded (event: Events.VIDEO_PTS_NEEDED, data: VideoPTSNeededCC) {
+  onVideoPtsNeeded(event: Events.VIDEO_PTS_NEEDED, data: VideoPTSNeededCC) {
     this.reAlignCC = data.cc;
   }
 }
