@@ -108,7 +108,7 @@ export default class StreamController
     hls.off(Events.LEVELS_UPDATED, this.onLevelsUpdated, this);
     hls.off(Events.FRAG_BUFFERED, this.onFragBuffered, this);
     hls.off(Events.ABORT_SEGMENT_LOADING, this.onAbortSegmentLoading, this);
-    hls.on(Events.VIDEO_PTS_NEEDED, this.onVideoPtsNeeded, this);
+    hls.off(Events.VIDEO_PTS_NEEDED, this.onVideoPtsNeeded, this);
   }
 
   protected onHandlerDestroying() {
