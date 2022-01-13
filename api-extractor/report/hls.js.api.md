@@ -123,7 +123,7 @@ export class BaseSegment {
     // (undocumented)
     get url(): string;
     set url(value: string);
-    }
+}
 
 // Warning: (ae-missing-release-tag) "BufferAppendedData" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -469,6 +469,8 @@ export enum ErrorTypes {
 // @public
 export enum Events {
     // (undocumented)
+    ABORT_SEGMENT_LOADING = "hlsAbortSegmentLoading",
+    // (undocumented)
     AUDIO_TRACK_LOADED = "hlsAudioTrackLoaded",
     // (undocumented)
     AUDIO_TRACK_LOADING = "hlsAudioTrackLoading",
@@ -575,7 +577,9 @@ export enum Events {
     // (undocumented)
     SUBTITLE_TRACKS_CLEARED = "hlsSubtitleTracksCleared",
     // (undocumented)
-    SUBTITLE_TRACKS_UPDATED = "hlsSubtitleTracksUpdated"
+    SUBTITLE_TRACKS_UPDATED = "hlsSubtitleTracksUpdated",
+    // (undocumented)
+    VIDEO_PTS_NEEDED = "hlsVideoPtsNeeded"
 }
 
 // Warning: (ae-missing-release-tag) "FPSControllerConfig" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -925,7 +929,6 @@ class Hls implements HlsEventEmitter {
     // (undocumented)
     static get version(): string;
 }
-
 export default Hls;
 
 // Warning: (ae-missing-release-tag) "HlsChunkPerformanceTiming" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -989,6 +992,10 @@ export interface HlsEventEmitter {
 //
 // @public (undocumented)
 export interface HlsListeners {
+    // Warning: (ae-forgotten-export) The symbol "AbortSegmentLoading" needs to be exported by the entry point hls.d.ts
+    //
+    // (undocumented)
+    [Events.ABORT_SEGMENT_LOADING]: (event: Events.ABORT_SEGMENT_LOADING, data: AbortSegmentLoading) => void;
     // (undocumented)
     [Events.AUDIO_TRACK_LOADED]: (event: Events.AUDIO_TRACK_LOADED, data: AudioTrackLoadedData) => void;
     // (undocumented)
@@ -1097,6 +1104,10 @@ export interface HlsListeners {
     [Events.SUBTITLE_TRACKS_UPDATED]: (event: Events.SUBTITLE_TRACKS_UPDATED, data: SubtitleTracksUpdatedData) => void;
     // (undocumented)
     [Events.SUBTITLE_TRACK_SWITCH]: (event: Events.SUBTITLE_TRACK_SWITCH, data: SubtitleTrackSwitchData) => void;
+    // Warning: (ae-forgotten-export) The symbol "VideoPTSNeededCC" needs to be exported by the entry point hls.d.ts
+    //
+    // (undocumented)
+    [Events.VIDEO_PTS_NEEDED]: (event: Events.VIDEO_PTS_NEEDED, data: VideoPTSNeededCC) => void;
 }
 
 // Warning: (ae-missing-release-tag) "HlsPerformanceTiming" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1426,7 +1437,7 @@ export class LevelKey {
     method: string | null;
     // (undocumented)
     get uri(): string | null;
-    }
+}
 
 // Warning: (ae-missing-release-tag) "LevelLoadedData" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2123,7 +2134,6 @@ export interface UserdataSample {
     // (undocumented)
     pts: number;
 }
-
 
 // Warnings were encountered during analysis:
 //
