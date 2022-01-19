@@ -268,16 +268,6 @@ export function mergeDetails(
   if (newDetails.skippedSegments) {
     newDetails.startCC = newDetails.fragments[0].cc;
   }
-  // Use existing init segment data for fragments not handled by mapFragmentIntersection (no corresponding oldFrag)
-  for (let i = 0; i < newFragments.length; i++) {
-    const newFrag = newFragments[i];
-    if (
-      newFrag.initSegment &&
-      newFrag.initSegment.relurl == currentInitSegment?.relurl
-    ) {
-      newFrag.initSegment = currentInitSegment;
-    }
-  }
 
   // Merge parts
   mapPartIntersection(
@@ -374,7 +364,6 @@ export function mapFragmentIntersection(
     ? oldDetails.fragments.concat(oldDetails.fragmentHint)
     : oldDetails.fragments;
 
-  let lastSameSegment: Fragment | null = null;
   for (let i = start; i <= end; i++) {
     const oldFrag = oldFrags[delta + i];
     let newFrag = newFrags[i];
@@ -383,22 +372,7 @@ export function mapFragmentIntersection(
       newFrag = newDetails.fragments[i] = oldFrag;
     }
     if (oldFrag && newFrag) {
-      lastSameSegment = oldFrag;
       intersectionFn(oldFrag, newFrag);
-    } else if (newFrag && lastSameSegment) {
-      if (newFrag.initSegment?.relurl == lastSameSegment?.initSegment?.relurl) {
-        newFrag.initSegment = lastSameSegment.initSegment;
-      }
-    }
-  }
-
-  const lastNewFrag = newFrags[end];
-  if (lastNewFrag) {
-    for (let i = end + 1; i < newFrags.length; i++) {
-      const newFrag = newFrags[i];
-      if (newFrag.initSegment?.relurl == lastNewFrag?.initSegment?.relurl) {
-        newFrag.initSegment = lastNewFrag.initSegment;
-      }
     }
   }
 }
