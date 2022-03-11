@@ -137,6 +137,8 @@ export type LatencyControllerConfig = {
   liveSyncDuration?: number;
   liveMaxLatencyDuration?: number;
   maxLiveSyncPlaybackRate: number;
+  recoverFromStallPeriod: number;
+  recoverFromStallMinBuffer: number;
 };
 
 export type TimelineControllerConfig = {
@@ -225,6 +227,8 @@ export const hlsDefaultConfig: HlsConfig = {
   liveSyncDuration: undefined, // used by latency-controller
   liveMaxLatencyDuration: undefined, // used by latency-controller
   maxLiveSyncPlaybackRate: 1, // used by latency-controller
+  recoverFromStallPeriod: 60, // used by latency-controller
+  recoverFromStallMinBuffer: 2, // used by latency-controller
   liveDurationInfinity: false, // used by buffer-controller
   liveBackBufferLength: null, // used by buffer-controller
   maxMaxBufferLength: 600, // used by stream-controller
