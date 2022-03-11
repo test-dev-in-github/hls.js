@@ -250,7 +250,8 @@ export default class LatencyController implements ComponentAPI {
       levelDetails.live &&
       inLiveRange &&
       distanceFromTarget > 0.05 &&
-      this.forwardBufferLength > 1
+      this.forwardBufferLength > 1 &&
+      this.canDeviceChangePlaybackRate() // Only adjust playbackRate on browsers for now
     ) {
       const max = Math.min(2, Math.max(1.0, maxLiveSyncPlaybackRate));
       const rate =
@@ -259,6 +260,9 @@ export default class LatencyController implements ComponentAPI {
             20
         ) / 20;
       media.playbackRate = Math.min(max, Math.max(1, rate));
+    } else if (!inLiveRange && this.liveSyncPosition) {
+      // alway seek to live sync position when current position is larger enough
+      media.currentTime = this.liveSyncPosition;
     } else if (media.playbackRate !== 1 && media.playbackRate !== 0) {
       media.playbackRate = 1;
     }
@@ -278,5 +282,20 @@ export default class LatencyController implements ComponentAPI {
       return null;
     }
     return liveEdge - this.currentTime;
+  }
+
+  private canDeviceChangePlaybackRate(): boolean {
+    const ua = navigator?.userAgent.toLowerCase() || '';
+    // According to https://bugs.webkit.org/show_bug.cgi?id=208142
+    // changing playbackRate in Safari can cause video playback disruption.
+    const isSafari = /safari/.test(ua) && !/chrome/.test(ua);
+    // Changing playbackRate in some devices also cause video playback disruption.
+    const isDeviceNotSupported = ['xbox', 'webos', 'tizen'].reduce(
+      (result: boolean, deviceUA: string) => {
+        return result || ua.indexOf(deviceUA) !== -1;
+      },
+      false
+    );
+    return !(isSafari || isDeviceNotSupported);
   }
 }
