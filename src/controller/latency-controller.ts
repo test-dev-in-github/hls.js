@@ -195,7 +195,7 @@ export default class LatencyController implements ComponentAPI {
     { details }: LevelUpdatedData
   ) {
     this.levelDetails = details;
-    if (details.advanced) {
+    if (details.live && details.advanced) {
       this.timeupdate();
     }
     if (!details.live && this.media) {
