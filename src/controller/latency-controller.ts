@@ -196,7 +196,7 @@ export default class LatencyController implements ComponentAPI {
     { details }: LevelUpdatedData
   ) {
     this.levelDetails = details;
-    if (details.live && details.advanced) {
+    if (details.advanced) {
       this.timeupdate();
     }
     if (!details.live && this.media) {
@@ -261,7 +261,7 @@ export default class LatencyController implements ComponentAPI {
             20
         ) / 20;
       media.playbackRate = Math.min(max, Math.max(1, rate));
-    } else if (!inLiveRange && this.liveSyncPosition) {
+    } else if (levelDetails.live && !inLiveRange && this.liveSyncPosition) {
       // alway seek to live sync position when current position is larger enough
       media.currentTime = this.liveSyncPosition;
     } else if (media.playbackRate !== 1 && media.playbackRate !== 0) {
