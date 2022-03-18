@@ -290,12 +290,12 @@ export default class LatencyController implements ComponentAPI {
     // changing playbackRate in Safari can cause video playback disruption.
     const isSafari = /safari/.test(ua) && !/chrome/.test(ua);
     // Changing playbackRate in some devices also cause video playback disruption.
-    const isDeviceNotSupported = ['xbox', 'webos', 'tizen'].reduce(
+    const isDeviceNotSupported = ['xbox', 'web0s', 'tizen'].reduce(
       (result: boolean, deviceUA: string) => {
         return result || ua.indexOf(deviceUA) !== -1;
       },
-      false
+      isSafari
     );
-    return !(isSafari || isDeviceNotSupported);
+    return !isDeviceNotSupported;
   }
 }
