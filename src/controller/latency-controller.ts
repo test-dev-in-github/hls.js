@@ -68,6 +68,7 @@ export default class LatencyController implements ComponentAPI {
     // try to recover
     const { recoverFromStallPeriod, recoverFromStallMinBuffer } = this.config;
     if (
+      lowLatencyMode &&
       recoverFromStallPeriod &&
       recoverFromStallMinBuffer &&
       this.stallCount > 0 &&
