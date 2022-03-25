@@ -203,7 +203,8 @@ export default class LatencyController implements ComponentAPI {
     this._latency = latency;
 
     // Adapt playbackRate to meet target latency in low-latency mode
-    const { lowLatencyMode, maxLiveSyncPlaybackRate } = this.config;
+    const { enableCatchupLoLP, lowLatencyMode, maxLiveSyncPlaybackRate } =
+      this.config;
     if (!lowLatencyMode || maxLiveSyncPlaybackRate === 1) {
       return;
     }
@@ -211,30 +212,16 @@ export default class LatencyController implements ComponentAPI {
     if (targetLatency === null) {
       return;
     }
-    const distanceFromTarget = latency - targetLatency;
-    // Only adjust playbackRate when within one target duration of targetLatency
-    // and more than one second from under-buffering.
-    // Playback further than one target duration from target can be considered DVR playback.
-    const liveMinLatencyDuration = Math.min(
-      this.maxLatency,
-      targetLatency + levelDetails.targetduration
-    );
-    const inLiveRange = distanceFromTarget < liveMinLatencyDuration;
-    if (
-      levelDetails.live &&
-      inLiveRange &&
-      distanceFromTarget > 0.05 &&
-      this.forwardBufferLength > 1
-    ) {
-      const max = Math.min(2, Math.max(1.0, maxLiveSyncPlaybackRate));
-      const rate =
-        Math.round(
-          (2 / (1 + Math.exp(-0.75 * distanceFromTarget - this.edgeStalled))) *
-            20
-        ) / 20;
-      media.playbackRate = Math.min(max, Math.max(1, rate));
-    } else if (media.playbackRate !== 1 && media.playbackRate !== 0) {
-      media.playbackRate = 1;
+    const newRate = enableCatchupLoLP
+      ? this.calculateNewPlaybackRateLolP(media, latency, targetLatency)
+      : this.calculateNewPlaybackRateDefault(
+          media,
+          latency,
+          targetLatency,
+          levelDetails
+        );
+    if (newRate) {
+      media.playbackRate = newRate;
     }
   }
 
@@ -252,5 +239,89 @@ export default class LatencyController implements ComponentAPI {
       return null;
     }
     return liveEdge - this.currentTime;
+  }
+
+  private calculateNewPlaybackRateDefault(
+    media: HTMLMediaElement,
+    latency: number,
+    targetLatency: number,
+    levelDetails: LevelDetails
+  ) {
+    const distanceFromTarget = latency - targetLatency;
+    // Only adjust playbackRate when within one target duration of targetLatency
+    // and more than one second from under-buffering.
+    // Playback further than one target duration from target can be considered DVR playback.
+    const liveMinLatencyDuration = Math.min(
+      this.maxLatency,
+      targetLatency + levelDetails.targetduration
+    );
+    let newRate;
+    const inLiveRange = distanceFromTarget < liveMinLatencyDuration;
+    if (
+      levelDetails.live &&
+      inLiveRange &&
+      distanceFromTarget > 0.05 &&
+      this.forwardBufferLength > 1
+    ) {
+      const { maxLiveSyncPlaybackRate } = this.config;
+      const max = Math.min(2, Math.max(1.0, maxLiveSyncPlaybackRate));
+      const rate =
+        Math.round(
+          (2 / (1 + Math.exp(-0.75 * distanceFromTarget - this.edgeStalled))) *
+            20
+        ) / 20;
+      newRate = Math.min(max, Math.max(1, rate));
+    } else if (media.playbackRate !== 1 && media.playbackRate !== 0) {
+      newRate = 1;
+    }
+    return newRate;
+  }
+
+  private calculateNewPlaybackRateLolP(
+    media: HTMLMediaElement,
+    latency: number,
+    targetLatency: number
+  ) {
+    const { minSmoothPlaybackBuffer, maxLiveSyncPlaybackRate } = this.config;
+
+    const cpr = maxLiveSyncPlaybackRate - 1;
+    let newRate;
+
+    // Hybrid: Buffer-based
+    if (this.forwardBufferLength < minSmoothPlaybackBuffer) {
+      // Buffer in danger, slow down
+      const deltaBuffer = this.forwardBufferLength - minSmoothPlaybackBuffer;
+      const d = deltaBuffer * 5;
+
+      // Playback rate must be between (1 - cpr) - (1 + cpr)
+      // ex: if cpr is 0.5, it can have values between 0.5 - 1.5
+      const s = (cpr * 2) / (1 + Math.pow(Math.E, -d));
+      newRate = 1 - cpr + s;
+    } else {
+      // Hybrid: Latency-based
+      // Buffer is safe, vary playback rate based on latency
+
+      // Check if latency is within range of target latency
+      const minDifference = 0.1;
+      if (Math.abs(latency - targetLatency) <= minDifference * targetLatency) {
+        newRate = 1;
+      } else {
+        const deltaLatency = latency - targetLatency;
+        const d = deltaLatency * 5;
+
+        // Playback rate must be between (1 - cpr) - (1 + cpr)
+        // ex: if cpr is 0.5, it can have values between 0.5 - 1.5
+        const s = (cpr * 2) / (1 + Math.pow(Math.E, -d));
+        newRate = 1 - cpr + s;
+      }
+    }
+
+    // don't change playbackrate for small variations (don't overload element with playbackrate changes)
+    const minPlaybackRateChange = 0.02;
+    if (Math.abs(media.playbackRate - newRate) <= minPlaybackRateChange) {
+      newRate = null;
+    }
+
+    return newRate;
   }
 }
