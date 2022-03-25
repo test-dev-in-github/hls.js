@@ -19,6 +19,7 @@ export default class LatencyController implements ComponentAPI {
   private currentTime: number = 0;
   private stallCount: number = 0;
   private _latency: number | null = null;
+  private _lastStallTime: number | null = null;
   private timeupdateHandler = () => this.timeupdate();
 
   constructor(hls: Hls) {
@@ -63,6 +64,29 @@ export default class LatencyController implements ComponentAPI {
     }
     const maxLiveSyncOnStallIncrease = targetduration;
     const liveSyncOnStallIncrease = 1.0;
+
+    // try to recover
+    const { recoverFromStallPeriod, minSmoothPlaybackBuffer } = this.config;
+    if (
+      lowLatencyMode &&
+      this.stallCount > 0 &&
+      this._lastStallTime &&
+      Date.now() - this._lastStallTime > recoverFromStallPeriod && // no buffering in certain period
+      this.forwardBufferLength > minSmoothPlaybackBuffer // have enough data to catch up
+    ) {
+      this._lastStallTime = Date.now();
+      const maxStallCount = Math.floor(
+        maxLiveSyncOnStallIncrease / liveSyncOnStallIncrease
+      );
+      if (this.stallCount > maxStallCount) {
+        this.stallCount = maxStallCount;
+      }
+      this.stallCount--;
+      logger.warn(
+        '[playback-rate-controller]: Recover from stall, adjusting target latency'
+      );
+    }
+
     return (
       targetLatency +
       Math.min(
@@ -184,6 +208,7 @@ export default class LatencyController implements ComponentAPI {
       return;
     }
     this.stallCount++;
+    this._lastStallTime = Date.now();
     logger.warn(
       '[playback-rate-controller]: Stall detected, adjusting target latency'
     );
