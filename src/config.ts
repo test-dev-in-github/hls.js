@@ -228,7 +228,7 @@ export const hlsDefaultConfig: HlsConfig = {
   liveSyncDuration: undefined, // used by latency-controller
   liveMaxLatencyDuration: undefined, // used by latency-controller
   maxLiveSyncPlaybackRate: 1, // used by latency-controller
-  recoverFromStallPeriod: 60, // used by latency-controller
+  recoverFromStallPeriod: 60000, // used by latency-controller
   minSmoothPlaybackBuffer: 1, // used by latency-controller
   enableCatchupLoLP: true, // used by latency-controller
   liveDurationInfinity: false, // used by buffer-controller

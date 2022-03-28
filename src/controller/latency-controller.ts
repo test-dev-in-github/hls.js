@@ -69,10 +69,8 @@ export default class LatencyController implements ComponentAPI {
     const { recoverFromStallPeriod, minSmoothPlaybackBuffer } = this.config;
     if (
       lowLatencyMode &&
-      recoverFromStallPeriod &&
-      minSmoothPlaybackBuffer &&
       this.stallCount > 0 &&
-      Date.now() - this._lastStallTime > recoverFromStallPeriod * 1000 && // no buffering in certain period
+      Date.now() - this._lastStallTime > recoverFromStallPeriod && // no buffering in certain period
       this.forwardBufferLength > minSmoothPlaybackBuffer
     ) {
       // have enough data
