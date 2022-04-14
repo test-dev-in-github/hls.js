@@ -89,7 +89,7 @@ export type FPSControllerConfig = {
 
 export type LevelControllerConfig = {
   startLevel?: number;
-  supportedCodecs: string[];
+  replaceCodecs: [from: string, to: string][];
 };
 
 export type MP4RemuxerConfig = {
@@ -242,7 +242,7 @@ export const hlsDefaultConfig: HlsConfig = {
   manifestLoadingRetryDelay: 1000, // used by playlist-loader
   manifestLoadingMaxRetryTimeout: 64000, // used by playlist-loader
   startLevel: undefined, // used by level-controller
-  supportedCodecs: [], // used by level-controller
+  replaceCodecs: [], // used by level-controller
   levelLoadingTimeOut: 10000, // used by playlist-loader
   levelLoadingMaxRetry: 4, // used by playlist-loader
   levelLoadingRetryDelay: 1000, // used by playlist-loader
