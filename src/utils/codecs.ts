@@ -80,3 +80,18 @@ export function isCodecSupportedInMp4(codec: string, type: CodecType): boolean {
     `${type || 'video'}/mp4;codecs="${codec}"`
   );
 }
+
+function formatCodec(codec: string) {
+  return codec.split(' ').join('').toLowerCase();
+}
+
+export function isCodecWhitelisted(
+  codec: string,
+  type: CodecType,
+  supportedCodecs: string[]
+): boolean {
+  const codecString = formatCodec(`${type || 'video'}/mp4;codecs="${codec}"`);
+  return supportedCodecs.some(
+    (supportedCodec) => codecString === formatCodec(supportedCodec)
+  );
+}

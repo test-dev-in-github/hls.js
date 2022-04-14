@@ -14,7 +14,7 @@ import {
 import { Level } from '../types/level';
 import { Events } from '../events';
 import { ErrorTypes, ErrorDetails } from '../errors';
-import { isCodecSupportedInMp4 } from '../utils/codecs';
+import { isCodecSupportedInMp4, isCodecWhitelisted } from '../utils/codecs';
 import { addGroupId, assignTrackIdsByGroup } from './level-helper';
 import BasePlaylistController from './base-playlist-controller';
 import { PlaylistContextType, PlaylistLevelType } from '../types/loader';
@@ -139,10 +139,15 @@ export default class LevelController extends BasePlaylistController {
     }
 
     // only keep levels with supported audio/video codecs
+    const { supportedCodecs } = this.hls.config;
     levels = levels.filter(({ audioCodec, videoCodec }) => {
       return (
-        (!audioCodec || isCodecSupportedInMp4(audioCodec, 'audio')) &&
-        (!videoCodec || isCodecSupportedInMp4(videoCodec, 'video'))
+        (!audioCodec ||
+          isCodecWhitelisted(audioCodec, 'audio', supportedCodecs) ||
+          isCodecSupportedInMp4(audioCodec, 'audio')) &&
+        (!videoCodec ||
+          isCodecWhitelisted(videoCodec, 'video', supportedCodecs) ||
+          isCodecSupportedInMp4(videoCodec, 'video'))
       );
     });
 
