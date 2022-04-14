@@ -89,7 +89,7 @@ export type FPSControllerConfig = {
 
 export type LevelControllerConfig = {
   startLevel?: number;
-  replaceCodecs: [from: string, to: string][];
+  replaceCodecs: [string, string][];
 };
 
 export type MP4RemuxerConfig = {

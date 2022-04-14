@@ -1318,7 +1318,7 @@ export interface LevelAttributes extends AttrList {
 // @public (undocumented)
 export type LevelControllerConfig = {
     startLevel?: number;
-    replaceCodecs: [from: string, to: string][];
+    replaceCodecs: [string, string][];
 };
 
 // Warning: (ae-missing-release-tag) "LevelDetails" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
