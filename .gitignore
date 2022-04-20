@@ -41,3 +41,5 @@ _ReSharper*/
 
 # VSCode custom workspace settings
 .vscode/settings.json
+
+hls.js-*.tgz
