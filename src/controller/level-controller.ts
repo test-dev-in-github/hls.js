@@ -103,10 +103,10 @@ export default class LevelController extends BasePlaylistController {
       // replace codecs with the ones defined as supported by this browser
       const { replaceCodecs } = this.hls.config;
       for (const [from, to] of replaceCodecs) {
-        if (levelParsed.videoCodec === from) {
+        if (levelParsed.videoCodec?.toLowerCase() === from.toLowerCase()) {
           levelParsed.videoCodec = to;
         }
-        if (levelParsed.audioCodec === from) {
+        if (levelParsed.audioCodec?.toLowerCase() === from.toLowerCase()) {
           levelParsed.audioCodec = to;
         }
       }
